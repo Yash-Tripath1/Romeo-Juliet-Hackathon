@@ -571,3 +571,196 @@ honest about its pilot data and internally consistent about the rest.
    fresh seeds — §9 shows the incumbent itself regresses to a null across 40
    fresh worlds. Dropping the 17-config layer does not weaken the Round 2
    argument; it removes the weakest evidence and the largest liability.
+
+---
+
+## 11. Draft — reproducibility disclosure for the Round 2 report
+
+*Ready to paste. One paragraph, placed before anyone asks. Say it once, plainly,
+and move on.*
+
+> **Reproducibility disclosure.** The Round 1 note reported 1,326 episodes across
+> 17 policy configurations. We cannot currently reproduce 13 of those
+> configurations: the scripts and per-episode artifacts were produced in
+> short-lived research sessions during the submission window, were never
+> committed, and no archive of them survives in any of the three locations we
+> searched. We have verified that the reported numbers were genuinely computed
+> rather than fabricated: the Appendix B.9 funnel table reconciles internally in
+> all 13 rows across seven mutually constraining columns, the stage rates it
+> implies reproduce the separately reported stage-rate table to three decimal
+> places, and the five configurations that overlap with our surviving
+> per-episode data match exactly. Every result in this report comes from code
+> included in this submission — the 360-episode six-method core preserved from
+> Round 1, and 1,260 distinct episodes generated for Round 2 on fresh seeds. We
+> do not cite the unreproducible configurations as evidence; where a Round 1
+> conclusion depends on them, we re-derive it here or drop it.
+
+**Placement:** immediately after the methods section, before any results table.
+Disclosure reads as rigour when it is voluntary; it reads as damage control when
+it is extracted under questioning.
+
+**Do not add:** speculation about which session lost the files, or assurances
+that the numbers are "probably fine". The paragraph asserts three checkable
+facts — what is missing, how we know it was computed, and what we cite instead.
+
+---
+
+## 12. Draft — reproducibility status table for the Round 2 report
+
+*One table, so a reader can see at a glance what stands on code and what does not.*
+
+| Result / artifact | Round 1 value | Reproduces today? | Note |
+|---|---:|---|---|
+| `greedy` | 0.350 | **Yes — exact** | 360-row core, 60/60 episodes |
+| `no_ask` | 0.167 | **Yes — exact** | 360-row core |
+| `random_feasible` | 0.358 | **Yes — exact** | 360-row core |
+| `max_weight_similarity` | 0.408 | **Yes — exact** | 360-row core |
+| `potential_ask` (incumbent) | 0.525 | **Yes — after a bug fix** | Signed vs unsigned agreement score. A naive rebuild from the paper gives 0.367, not 0.525 |
+| `unlock_soft7_maxw` | 0.525 | No | No code survives |
+| `lab_potential_maxw` | 0.525 | No | No code survives |
+| `lab_potential_core4_maxw` | **0.592** | **No** | Round 1 winner, best-of-17 — **no code anywhere** |
+| `defaultask_core4_maxw` | 0.483 | No | No code survives |
+| Remaining 8 of 17 configs | — | No | No code survives |
+| `soft_ask_screen.py` | — | **Yes — self-contained** | Present in repo, imports only `experiment_lab`, zero `scripts/` references |
+| Pilot: thompson / GP-UCB / GP-mean | 0.472 / 0.389 / 0.222 | **Yes — exact** | Matches `summary.csv` in the archive |
+| Appendix B.9 funnel table | 13 rows × 7 cols | **Internally consistent, 13/13** | Implied stage rates match the separate stage-rate table to 3–4 dp |
+
+### The one line to say out loud
+
+> Four of the six methods we can still run reproduce exactly. The Round 1
+> **incumbent reproduces only after fixing a sign error**, and the Round 1
+> **winner does not reproduce at all** because its code was never saved.
+
+That sentence is the strongest argument in the report for the Round 2 strategy.
+It converts the missing-code problem from an embarrassment into the motivation
+for everything that follows — and it is the reason we stopped tuning and started
+measuring.
+
+### A caution that belongs in the methods section
+
+**Rebuilding a Round 1 configuration from the note alone yields the wrong
+policy.** The `potential_ask` incident is the proof: the signed-agreement variant
+scored 0.367 against the incumbent's 0.525, and the difference is invisible
+until you score it. A resumed run can also silently skip episodes when arm
+*names* match but semantics do not. Verify semantics, not names.
+
+---
+
+## 13. The 60-seed ship decision — `greedy` vs `oldest_first`
+
+720 episodes (60 fresh seeds 1101–1160 × 6 scenarios × 2 arms), seed-block
+bootstrap, paired on identical worlds.
+
+### 13.1 Primary score — a tie
+
+| arm | n seeds | MSMI/100 | 95% CI | events | coverage | cov/ceiling | ask cost |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `greedy` | 60 | **0.412** | [0.349, 0.479] | 297 | 0.336 | 0.979 | 199 |
+| `oldest_first` | 60 | **0.399** | [0.332, 0.471] | 287 | 0.336 | 0.980 | 199 |
+
+`greedy − oldest_first` = **+0.014, 95% CI [−0.058, +0.085], p = 0.736,
+W/T/L 28/7/25.** Doubling the seeds from 30 to 60 narrowed the interval but did
+not separate the arms. Both sit at 97.9–98.0% of the structural coverage ceiling.
+
+### 13.2 The most important number in this submission
+
+The two batches of 30 seeds were drawn identically. **The same code scored
+0.489 on one and 0.336 on the other.**
+
+| arm | batch A (1101–1130) | batch B (1131–1160) | swing |
+|---|---:|---:|---:|
+| `greedy` | 0.489 [0.397, 0.586] | 0.336 [0.256, 0.419] | **−0.153** |
+| `oldest_first` | 0.472 [0.386, 0.558] | 0.325 [0.233, 0.436] | **−0.147** |
+
+Both arms swing by almost the same amount **in the same direction**. That is the
+signature of world difficulty, not sampling noise: batch B simply contains harder
+worlds. The policy gap is 0.017 on A and 0.011 on B — **the seed-set swing is
+9–14× the policy gap.**
+
+**Which 30 seeds you draw matters roughly ten times more than which of these two
+policies you ship.**
+
+### 13.3 What the private evaluation can resolve
+
+Per-seed SD of the primary is **0.26–0.28**. On the organiser's **20 private
+seeds**, SE ≈ 0.059–0.062, so the 95% half-width is ±0.12.
+
+> Two policies must differ by **more than ~0.24** to be reliably ranked on the
+> private set. Our `greedy` vs `oldest_first` gap is **0.014 — about one tenth of
+> one standard error.**
+
+Any ranking among near-identical policies on 20 seeds is close to a coin flip.
+This is not a failing of our experiments; it is a property of the evaluation
+design, and it should be stated in the report.
+
+### 13.4 Tie-breaks — all tie (official order: coverage, mutual acceptances, −ask cost, −time)
+
+| tie-break | `greedy` | `oldest_first` | diff | 95% CI | verdict |
+|---|---:|---:|---:|---|---|
+| coverage | 0.336 | 0.336 | −0.0003 | [−0.001, +0.001] | tie |
+| mutual acceptances | 11.125 | 11.058 | +0.067 | [−0.475, +0.611] | tie |
+| clarification cost | 199 | 199 | — | — | tie |
+| inference time | 0.07 s/invocation | 0.07 s/invocation | — | — | tie (limit 10 s) |
+
+**Runtime check:** a 1,595 s outlier appeared in the batch run. Re-running those
+two worlds in isolation gave **3.9 s per episode** — the outlier was CPU
+contention on a 2-core sandbox, not an algorithmic blow-up. Typical cost is
+**0.07 s per invocation against the 10 s limit.**
+
+**Ask-budget check:** the harness spends 12 units/day as **4 hard bundles × 3
+units**, matching the official "12 units per day". The daily cap is binding on
+days 0–10 (4.0, 4.0, 3.8 asks/day) and the askable pool drains to zero by day
+20 under every rule — no budget is being wasted.
+
+### 13.5 Waiting — `oldest_first` wins the tail, and significantly
+
+Paired by seed, 60 seeds × 6 scenarios. **Lower is better.**
+
+| metric | `greedy` | `oldest_first` | diff | 95% CI | W/T/L | verdict |
+|---|---:|---:|---:|---|---|---|
+| mean wait (served) | 6.871 | **6.641** | +0.230 | [+0.071, +0.389] | 43/0/17 | **`oldest_first` better** |
+| **p90 wait (served)** | 16.917 | **15.683** | **+1.233** | [+0.800, +1.683] | 37/15/8 | **`oldest_first` better** |
+| max wait (served) | 49.983 | 48.433 | +1.550 | [−0.783, +3.833] | 35/2/23 | tie |
+| median wait (served) | **4.525** | 4.950 | −0.425 | [−0.708, −0.150] | 12/18/30 | `greedy` better |
+| unserved / 200 | 132.900 | 132.847 | +0.053 | [−0.167, +0.281] | 27/11/22 | tie |
+
+**This is the trade.** `greedy` ranks by compatibility, so it serves the
+best-matched members almost immediately — the median wait is 0.43 days *lower*.
+But every introduction it makes to a high-compatibility pair is one it does not
+make to someone else, and those members accumulate: the **p90 wait is 1.23 days
+higher** and the mean 0.23 days higher.
+
+`oldest_first` is a pure FIFO queue. It gives up a little speed for the lucky
+members and buys a **statistically significant compression of the tail** — the
+people who would otherwise wait longest wait less. Both intervals exclude zero.
+
+### 13.6 Decision — ship `oldest_first`
+
+1. **Primary score: tied.** Giving up +0.014 (0.1 SE) costs nothing that the
+   private evaluation can detect.
+2. **Waiting tail: genuinely better.** Mean −0.23 and p90 −1.23 days, both
+   intervals excluding zero. "Who gets left waiting" is an explicit Round 2
+   criterion, and p90 waiting is the natural statistic for it.
+3. **Simplicity.** `oldest_first` uses no scoring, no prior, no learning and no
+   parameter — it is an arrival-order queue. That it matches a tuned greedy
+   baseline is itself the finding.
+4. **Fairness story.** FIFO is the canonical fair queuing discipline. When
+   §5 showed disparity is driven by world supply rather than policy, the natural
+   response is to adopt the allocation rule with the strongest fairness
+   justification rather than one that optimises a compatibility score.
+5. **No tie-break loss.** Coverage, clarification cost and runtime are identical.
+
+**Framing for the report:** *a first-in-first-out queue matches the tuned greedy
+baseline on the primary outcome, and shortens the waiting tail it leaves behind.*
+Then show the median/p90 trade honestly — the report should say plainly that FIFO
+is slightly slower for the best-matched members, and argue that the tail is what
+matters for "who gets left waiting".
+
+### 13.7 What this does not settle
+
+- The 0.592 Round 1 winner remains untested; on the evidence here, expect
+  **0.45–0.50** on fresh seeds, not 0.59.
+- Nothing we built beats the supplied `greedy` baseline on the primary outcome.
+  **Do not claim otherwise.**
+- `waitfloor` is still contaminated by the signed-ranking bug and must be
+  relabelled or re-run before it appears anywhere.

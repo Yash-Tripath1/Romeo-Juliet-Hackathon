@@ -1,128 +1,180 @@
-# The One Introduction Problem · Bipartite Bard Round 1 lab
+# Bipartite Bard — Round 2 working archive
 
-**A supply-constrained sequential matching policy: clarification targeting,
-outcome-relevant weighting, and variance-aware evaluation.**
-Round 1 research submission for the *Vouchsafe Sequential Matching Hackathon*,
-built entirely on the organisers' public synthetic simulator (starter release 1.0.0).
+**Backed up:** 11 October 2026 (Round 2 runs 12–18 Oct; final build due **18 Oct 2026 23:59 IST**)
+**Team:** Bipartite Bard — lead Anadi Tripathi (IIT Madras)
+**Challenge:** The Sequential Matching Problem (Vouchsafe / RomeoJulietLove)
 
-**Team:** Bipartite Bard · **Lead/members:** Anadi Tripathi · **Institution:** IIT Madras
-**Submission note:** [`research/RESEARCH_NOTE_ROUND1_rev3.pdf`](research/RESEARCH_NOTE_ROUND1_rev3.pdf)
-(compact, figure-driven) · full note:
-[`research/RESEARCH_NOTE_ROUND1_rev2.pdf`](research/RESEARCH_NOTE_ROUND1_rev2.pdf)
+This archive exists because research material was lost twice — first the Round 1
+`scripts/`, then this workspace's raw run data (it outgrew the snapshot cap).
+**Everything in `00_`–`02_` is irreplaceable and exists nowhere else.**
 
-> **Status (9 Oct 2026).** All headline numbers reproduce the lab's published rows:
-> the three official baselines re-verified through the organisers' reference
-> evaluator, 54/54 episodes identical
-> ([`research/VERIFICATION_2026_10_09.md`](research/VERIFICATION_2026_10_09.md)).
-> Everything below is exploratory public-seed evidence; honesty labels at the bottom.
+---
 
-## At a glance
+## Directory map
 
-1. **Supply, not ranking, sets the score.** Coverage ceilings are 0.399 / 0.341 / 0.178
-   (development / cold start / sparse); all sixteen asking configurations land at
-   97 to 98% of ceiling.
-2. **Asking at all is the step function:** any ask rule beats no clarification,
-   +0.183 MSMI/100, CI [+0.042, +0.325]; all 16 ask-vs-no-ask intervals exclude zero.
-3. **Pre-specified incumbent vs official greedy:** +0.175, CI [+0.092, +0.258],
-   p = 0.016, 23 wins / 29 ties / 8 losses; on the seven fresh seeds alone, +0.143.
-4. **Among competent ask-and-match rules almost nothing separates:** 13 configurations
-   span 0.400 to 0.592; only 3 of 78 pairwise intervals exclude zero (weight coding and
-   global matching).
-5. **Perfect information buys almost nothing:** an oracle with free complete
-   clarification reaches coverage 0.298 vs 0.297, one extra assignment per episode.
-
-## Key figures
-
-Full set of eight in [`research/figures/`](research/figures/); the four core results:
-
-**Which configurations score highest? Mostly the intervals overlap.**
-![MSMI per 100 arrived members for all 17 configurations with 95% seed-block CIs](research/figures/fig1_msmi_forest.png)
-
-**Where introductions are lost on the way to an MSMI.** Mutual acceptance is the
-largest single count-level loss, and the one stage pair selection touches.
-![Funnel from assignment to MSMI](research/figures/fig4_funnel.png)
-
-**What moved the score, and what did not.** Only asking-vs-nothing and the
-pre-specified incumbent contrast exclude zero with margin.
-![Twelve contrasts with 95% seed-block CIs](research/figures/fig6_contrasts.png)
-
-**Most of the pool can never be introduced, whatever the policy.**
-![Member partition: can be introduced / no feasible partner / both / declined hard field](research/figures/fig8_who_can_be_served.png)
-
-Also in the set: coverage vs the structural ceiling
-([fig2](research/figures/fig2_coverage_vs_ceiling.png)), per-family heatmap
-([fig3](research/figures/fig3_family_heatmap.png)), the oracle ladder
-([fig5](research/figures/fig5_oracle_ladder.png)) and askable-population saturation
-([fig7](research/figures/fig7_askable_saturation.png)).
-
-## Repository map
-
-```
-starter/                     organisers' public kit, unchanged (own MIT notice)
-tests/test_smoke.py          smoke test
-experiment_lab.py            episode harness: labels, seed-block bootstrap CI, sign-flip test
-scaled_factorial.py          10-seed x 6-family factorial runner (17 configurations)
-soft_ask_screen.py           3-seed soft-question pilot (72 episodes)
-soft_ask_validation_7seeds.py  7-seed held-out soft-question follow-up (42 episodes)
-run_suite.py, run_controls.py, phase_screen.py,
-phase_hybrid_policy.py, corrected_learning_rerun.py,
-checkpoint_diagnostics.py    prior-phase exploratory scripts (see archive note below)
-make_research_figures.py     supplementary figure generator (method diagram etc.)
-make_report.py               report helper
-tools/build_research_note.py note assembly helper
-results/                     every run output: JSON/CSV aggregates used by the note
-research/                    notes, PDFs, builders, provenance, verification, figures
-CHECKLIST.md                 owner actions before/after submission
-SHA256SUMS.txt               checksums of packaged files
-```
-
-## Reproducing the numbers
-
-| Result | Command / source | Output |
+| Folder | Contents | Replaceable? |
 |---|---|---|
-| Official-baseline verification (54/54 identical) | organisers' `evaluate.py` + `policy.py`, trusted-local mode | `results/reference_verification_3seeds.json` |
-| 10-seed factorial (360 episodes) | `python3 scaled_factorial.py` | `results/scaled_factorial_10seeds.json`, `results/scaled_factorial_summary.csv` |
-| Soft-ask pilot and holdout | `python3 soft_ask_screen.py`, `python3 soft_ask_validation_7seeds.py` | `results/soft_ask_holdout_aggregate.csv` |
-| Figures in `research/figures/` | generated from the checked-in aggregates (no simulation) | `research/figures/fig1..8` |
-| Submission PDFs | `python3 research/build_pdf_rev2.py`, `python3 research/build_pdf_rev3.py` | `research/RESEARCH_NOTE_ROUND1_rev2/rev3.pdf` |
+| `00_DELIVERABLE/` | `ROUND2_FINDINGS.md` (13 sections, the main doc), `ROUND2_PLAN.md` | **NO — irreplaceable** |
+| `01_RESULTS/` | All computed analyses: 900-episode sweep, 720-episode ship run, Round-1-seed replication, soft-ask VM results, structural ceilings | **NO — irreplaceable** |
+| `02_CODE/` | `waitlab.py` (harness), `analyse.py`, `ceilings.py`, `wait_comparison.py`, `round2_build/` (submission policy + Dockerfile) | **NO — irreplaceable** |
+| `03_RAW_DATA/` | Per-episode / per-member JSONL, gzipped | Yes — regenerable from `02_CODE/` |
+| `04_SOURCE_DOCS/` | Submitted Round 1 research PDF + extracted text | Yes, but keep |
+| `05_OFFICIAL_KIT/` | Organiser release: `kit.py`, `evaluate.py`, `policy.py`, `PROBLEM_STATEMENT.md`, `docs/` | Yes — public repo |
+| `06_UPLOADS/` | Files the lead attached during the project | Mostly yes |
 
-Round 1 harness scripts named in the note's artifact index (`scripts/` directory:
-structure/supply diagnosis, rollout logging, prior fitting, oracle ladder, ask
-timing, attainable ceiling) plus `results/analysis.json`,
-`results/primary_summary.csv` and `results/ask_timing.json` live on the author's
-working machine and are **pending push**; they are listed, never reconstructed,
-in [`research/PROVENANCE_AND_ARTIFACT_STATUS.md`](research/PROVENANCE_AND_ARTIFACT_STATUS.md)
-and [`research/ROUND1_NOTE.md`](research/ROUND1_NOTE.md).
+**Regeneration:**
+```bash
+python3 02_CODE/waitlab.py --seeds 1101,1102 --arms greedy,oldest_first --workers 2 --out out/
+python3 02_CODE/ceilings.py 1101,1102 development,sparse,cold_start,delayed,shift,drift
+python3 02_CODE/analyse.py --out out --arms greedy,oldest_first
+```
 
-## Research note lineage
+---
 
-| File | What it is |
+## Ship decision — `oldest_first` (decided 11 Oct, 720 episodes / 60 seeds)
+
+`greedy` 0.412 vs `oldest_first` 0.399 — **diff +0.014, CI [−0.058, +0.085], p = 0.736. A tie.**
+
+| arm | n | MSMI/100 | 95% CI | events | coverage | cov/ceil | ask |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `greedy` | 60 | **0.412** | [0.349, 0.479] | 297 | 0.336 | 0.979 | 199 |
+| `oldest_first` | 60 | 0.399 | [0.332, 0.471] | 287 | 0.336 | 0.980 | 199 |
+
+Decided on waiting time instead. Paired by seed, lower is better:
+
+| metric | `greedy` | `oldest_first` | diff | 95% CI | verdict |
+|---|---:|---:|---:|---|---|
+| mean wait (served) | 6.871 | **6.641** | +0.230 | [+0.071, +0.389] | **oldest_first** |
+| p90 wait (served) | 16.917 | **15.683** | **+1.233** | [+0.800, +1.683] | **oldest_first** |
+| median wait (served) | **4.525** | 4.950 | −0.425 | [−0.708, −0.150] | greedy |
+| unserved / 200 | 132.900 | 132.847 | +0.053 | [−0.167, +0.281] | tie |
+
+FIFO gives up 0.43 days of median speed for the best-matched members and buys
+**1.23 days off the p90 tail** — the statistic that answers "who gets left waiting".
+
+### The number to lead the report with
+
+The same code scored **0.489** on seeds 1101–1130 and **0.336** on seeds 1131–1160.
+
+| arm | batch A (1101–1130) | batch B (1131–1160) | swing |
+|---|---:|---:|---:|
+| `greedy` | 0.489 | 0.336 | **−0.153** |
+| `oldest_first` | 0.472 | 0.325 | **−0.147** |
+
+Both arms swing together ⇒ world difficulty, not noise. Seed-set swing is
+**9–14× the policy gap**. On the organiser's 20 private seeds, SE ≈ 0.06, so two
+policies must differ by **~0.24** to be ranked reliably. Our gap is 0.014 —
+**one tenth of a standard error**. Ranking near-identical policies on 20 seeds is
+close to a coin flip; state this in the report.
+
+### Safety checks (both pass)
+
+- **Runtime:** 0.07 s per invocation vs the 10 s limit. A 1,595 s outlier in the
+  batch run was sandbox CPU contention — **3.9 s per episode** when re-run alone.
+- **Ask budget:** 4 hard bundles × 3 units = the official **12 units/day**. The cap
+  binds on days 0–10; the askable pool drains to zero by day 20 under every rule.
+
+---
+
+## Reproducibility status — the thing that keeps getting lost
+
+Round 1's PDF claims **1,326 episodes across 17 configurations**.
+The largest surviving artifact is **360 episodes across 6 methods**.
+
+**Verdict: a reproducibility failure, not an integrity failure.**
+
+Evidence the 17-configuration numbers were genuinely computed (not fabricated):
+- The Appendix B.9 funnel table has 7 mutually-constraining columns per method;
+  **all 13 rows reconcile** internally.
+- Implied stage rates reproduce the *separate* stage-rate table to 3–4 decimals
+  (P(on-time | date) goes 0.194 greedy → 0.305 winner — the note's own central claim).
+- The 5 methods common to both the 360-row core and the 17-config table **match exactly**.
+- Pilot citations (thompson 0.472, gp_ucb 0.389, gp_mean 0.222) verified exactly.
+
+**Where the code went:** three independent locations were searched — the VM bundle,
+a Google Drive snapshot (9 Oct 08:03 IST), and a 47-file re-upload (all 47 byte-identical
+to the repo). All three agree: the 13 scripts and 13 result artifacts were **never
+persisted**. They lived only in live agent-session workspaces on deadline day and were
+discarded when those sessions ended.
+
+**Consequence:** *do not cite the 17-configuration numbers.* Rebuild on the
+360-row reproducible core plus our own 1,620 episodes.
+
+| Result | Status |
 |---|---|
-| `research/RESEARCH_NOTE_ROUND1.pdf` | first uploaded PDF (kept as submission record) |
-| `research/RESEARCH_NOTE_ROUND1_rev2.pdf` | full corrected note, 26 pp, native math |
-| `research/RESEARCH_NOTE_ROUND1_rev3.pdf` | compact revision: 9 body pages + appendix, 8 figures |
-| `research/RESEARCH_NOTE_FINAL.md` / `RESEARCH_NOTE_REV3.md` | sources of rev2 / rev3 |
-| `research/rev2_numeric_diff.txt`, `rev2_math_manifest.json` | acceptance-test evidence |
+| `greedy` 0.350, `no_ask` 0.167, `random` 0.358, `max_weight_similarity` 0.408 | Reproduces exactly |
+| `potential_ask` 0.525 (incumbent) | Reproduces **only after** fixing a signed-vs-unsigned agreement-score bug |
+| `lab_potential_core4_maxw` 0.592 (Round 1 winner, best-of-17) | **No code anywhere — unreproducible** |
+| `soft_ask_screen.py` | Present in repo, self-contained, reproduces |
 
-## Prior-phase archive (exploratory, superseded)
+**Lesson:** rebuilding a Round 1 configuration from the paper alone yields the *wrong*
+policy. Always verify arm **semantics**, not just arm names.
 
-`experiment_log.md`, `research/SIMULATION_OVERVIEW_AND_REQUIREMENTS_AUDIT.md`,
-the `phase_*` / `corrected_learning_rerun` / `checkpoint_diagnostics` scripts and
-the pilot JSONs document the pre-Round-1 pilot and phase screens. They are kept
-for provenance; their numbers are **not** Round 1 claims, and their original
-charts were superseded by the figure set above (the audit's embedded charts now
-point at the new figures).
+---
 
-## Honesty labels (apply to everything here)
+## Other headline results
 
-Exploratory public-simulator evidence · public seeds only · unadjusted p-values ·
-in-process timings (not official per-invocation or Docker timings) · fully
-synthetic data · not private evaluation, not real-user evidence, not evidence of
-product effectiveness. Analysis-only scripts read simulator ground truth and are
-never imported by any policy at inference time. AI tools used: Arena.ai Agent
-Mode plus additional LLM chat assistants (ideation, debugging, drafting, review);
-every number was checked against the simulator, the specification or publisher
-records.
+### Q1 confirmation — NON-REPLICATION
 
-Starter kit unchanged, upstream commit `a8e26b35118cfa8e886a02f93984923e43ab64f6`
-(`starter/SOURCE.md`). No separate code license is asserted by this bundle.
+| | incumbent − greedy | 95% CI | seeds |
+|---|---:|---:|---:|
+| Round 1 note | **+0.175** | [+0.092, +0.258] | 10 |
+| Parallel run | +0.008 | [−0.217, +0.233] | 10 |
+| This run | **−0.044** | [−0.175, +0.081] | 30 |
+| **Pooled** | **−0.031** | **[−0.143, +0.080]** | 40 |
+
+**Never claim the incumbent beats greedy.**
+
+### Why no learned scorer can help (a bound, not a gap)
+
+Variance of the acceptance logit `z = −0.25 + bias + fit + shared + drift`:
+
+| component | SD | share |
+|---|---:|---:|
+| `fit` — 4 soft-field agreements (**observable**) | 0.636 | **36.5%** |
+| `bias` — per member, `N(0,0.7)` (**latent**) | 0.708 | 45.2% |
+| `shared` — per pair, `N(0,0.45)` (**latent**) | 0.451 | 18.3% |
+
+**64% of the variance is unobservable by construction** — unrecoverable by any model
+from the policy interface. The observable 36.5% is exactly what we already use.
+
+### Structural and null results
+
+- **Disparity is world supply, not policy.** Reachable share by zone: a 0.48 / b 0.32 /
+  c 0.23 / d 0.12 (4×). Gender (0.39/0.39/0.42) and age (0.37–0.42) are **flat** —
+  negative controls, so the audit has power. Leg 2 (ask units) and Leg 3 (served | reachable)
+  are flat for every group. Unfixable without overriding `acceptable_zones`.
+- **Waiting is a null across arms.** The askable pool drains 45→0 by day 20 identically
+  under *every* rule and the queue fully drains — reordering cannot change who waits.
+- **Soft-ask lever is null (closed).** +0.0833 decomposes to **26 vs 23 events**
+  (Poisson SD 7.0 ⇒ 0.43 SD); coverage +0.00028, assignments −0.17, ask cost **+44%**.
+  Pooled with the 7-seed holdout: **68 vs 63 events over 120 paired episodes, p = 0.844.**
+- **Generator:** `observe()` hides `exit_day` ⇒ batching cannot help. Joint acceptance
+  0.2538 vs product of directionals 0.2297 (ratio 1.105) — **never multiply directionals**.
+  No demographic term exists anywhere in the generator.
+- **Seed blocks:** `delayed`/`shift`/`drift` share identical members with `development`
+  per seed ⇒ ~90 independent worlds, not 180. **Seed is the only valid resampling unit.**
+- **Ceilings (60 seeds):** development/delayed/shift/drift 0.389, sparse 0.171,
+  cold_start 0.332. Per-seed development spread 0.260–0.500. All arms reach
+  cov/ceil 0.979–0.980 ⇒ **report coverage ÷ ceiling, not raw coverage.**
+
+---
+
+## Still open
+
+1. **Disclosure paragraph** — drafted, §11 of `ROUND2_FINDINGS.md`.
+2. **Reproducibility-status table** — drafted, §12.
+3. **`waitfloor` is contaminated** by the signed-ranking bug — relabel or re-run
+   before it appears anywhere.
+4. **Dockerfile has never been built** — must be before 18 Oct.
+5. **Adaption Labs** (`adaptionlabs.ai`) — a general dataset-generation / AutoML
+   platform. Given the 64% latent bound, it cannot change the approach.
+   **Never share API keys or credentials with the agent.**
+
+## Hygiene rules learned the hard way
+
+- Keep the workspace **under ~100 MB**; raw JSONL is what gets pruned first.
+- Extract summaries to `ROUND2_FINDINGS.md` **immediately**, then gzip or delete raw JSONL.
+- Re-archive to a zip at the end of every session, and **download the zip**.
+- A resumed run can silently skip episodes if arm *names* match but semantics don't —
+  verify semantics, not names.
