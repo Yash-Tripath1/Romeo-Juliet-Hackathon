@@ -1,0 +1,2173 @@
+===== PAGE 1 =====
+B I PA RT I T E B A R D / I I T M A D R A S
+R O U N D 1 · 0 9 O C T 2 0 2 6
+V O U C H S A F E S E Q U E N T I A L M AT C H I N G H A C K AT H O N
+The One
+Introduction
+Problem
+A supply-constrained sequential matching policy:
+clarification targeting, outcome-relevant weighting, and
+variance-aware evaluation
+Clarification unlocks the feasible graph. Once it
+does, nearly every asking rule reaches the structural
+coverage ceiling—and the remaining score
+differences are difficult to distinguish from noise.
+0.525
+INCUMBENT · MSMI PER 100
+97–98%
+CEILING REACHED BY ASKING
+RULES
+1,326
+VALID EPISODES IN THE STUDY
+Anadi Tripathi
+Team leader & member
+Bipartite Bard · IIT Madras
+Starter release 1.0.0
+Public synthetic simulator · public seeds
+github.com/Yash-Tripath1/sequential-matching-public-simulator-lab
+
+===== PAGE 2 =====
+R ESEARCH NOTE / NAVIGATION
+Contents
+1. Abstract and thesis
+03
+2. Formalisation
+04
+3. Structural diagnosis (analysis-only)
+06
+4. Method
+07
+5. Experimental design
+09
+6. Results
+11
+7. Failure analysis
+17
+8. Round 2 plan, disclosure and references
+19
+Appendix A. Code-name key
+22
+Appendix B. Full tables
+23
+Appendix C. Baseline equivalence against the reference implementation
+30
+Appendix D. Validity threats
+30
+RESEARCH INTEGRITY & SCOPE
+Declaration. We confirm that this submission represents our team's work and that all external papers, data‐
+sets, code, AI tools and other resources used are acknowledged in §8.3 (AI tools and resources) and §8.5 (refer‐
+ences). AI tools used: Arena.ai Agent Mode and additional large-language-model chat assistants (ideation, code
+debugging, drafting and pre-submission review); see §8.3.
+Scope. Every person, preference, conversation and outcome in this work is synthetic content from the organ‐
+isers' public development kit. Nothing here estimates relationship compatibility for real people, and no result be‐
+low is evidence of product effectiveness. All experiments run against the public simulator on public seeds; no
+private world, private seed or private organiser file was used. Analysis marked analysis-only reads simulator
+ground truth and is never imported by, or available to, any policy at inference time.
+MSMI = mutual second-Yes, on time, within the date window. All results refer to synthetic worlds from the organisers’ public
+development kit; no result estimates real-world relationship compatibility.
+02
+
+===== PAGE 3 =====
+1. Abstract and thesis
+We reproduce the incumbent's 0.525 versus 0.350 starter greedy on ten public seeds, then measure how
+much room is left. Under complete disclosure the reciprocal hard-constraint graph has mean degree 2.53
+and 33.9% of members with no feasible partner; the fraction ever introducible is 0.399 (development),
+0.341 (cold start), 0.178 (sparse). Every asking rule reaches 97 to 98% of that ceiling, so the primary
+score is supply-determined: asking is a step function (+0.183, CI [+0.042, +0.325]), while targeting,
+weighting and adaptation differences run −0.000 to +0.117 at a fixed matcher, none conclusive. The pre-
+specified incumbent versus greedy contrast is +0.175, CI [+0.092, +0.258], p = 0.016. An oracle with per‐
+fect clarification adds 0.001 coverage and 1.2 assignments: information is not the binding constraint.
+At a glance
+Scale: 1,326 valid episodes (1,020 head-to-head, 180 oracle, 108 logging, 18 equivalence); zero invalid
+actions.
+Structure: coverage ceilings 0.399 / 0.341 / 0.178 and effective-edge caps 118.0 / 90.6 / 23.3; every
+asking rule at 97 to 98% of ceiling.
+What moves: asking vs none +0.183 [+0.042, +0.325]; incumbent vs greedy (pre-specified) +0.175
+[+0.092, +0.258], p = 0.016; weight coding plus global matching +0.133 [+0.008, +0.258].
+What does not move: ask targeting −0.000 to +0.117 (all ns); fitted prior vs hand-coded weights
+−0.125 [−0.192, −0.067]; online adaptation 0 wins / 60 ties / 0 losses; residual soft asks +0.017 (ns).
+Bound: best screened cell 0.592 is best of 17 and needs a fresh-seed retest; the attainable primary band
+is about 0.5 to 0.8; a perfect-information oracle adds 0.001 coverage.
+Thesis. With reciprocal hard feasibility enforced, MSMI is determined first by whether a policy makes the feas‐
+ible graph usable at all, a step function that any clarification rule, however naive, saturates; second by how
+much of the resulting edge supply it consumes before members exit or retire, which we measure at 68 to 87%
+and which no rule we tested moved; and only third, within a band narrower than 60 episodes can resolve, by 
+how well it ranks the pairs it gets to choose between.
+#
+Claim
+Verdict
+H1
+Unlock-value ask targeting beats count-based and
+unranked asking at a fixed matcher
+Not supported: differences −0.000 to +0.117 at a fixed match‐
+er, all CIs straddling zero
+H2
+Any asking policy beats no clarification
+Supported: +0.183 MSMI/100, CI [+0.042, +0.325]
+H3
+Online adaptation on dense directional responses
+helps in drift/shift
+Falsified as implemented: 0/60/0, MSMI outcomes identical to
+its static version
+H4
+Waiting/batching helps in supply-rich families and
+not in sparse
+Untested, planned (§8.1)
+H5
+Residual soft-field clarification does not help, be‐
+cause the matching is near-forced
+Not rejected: +0.017, CI [−0.083, +0.158], p = 0.961
+H6
+Coverage of any valid policy converges to the
+structural ceiling
+Supported: every asking policy at 97 to 98% of it; a perfect-
+clarification oracle reaches only 0.1 pp more
+1. 
+2. 
+3. 
+4. 
+5. 
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+03
+
+===== PAGE 4 =====
+Contributions. (i) A structural characterisation of the generated worlds (coverage ceilings, edge-supply
+caps, binding-constraint histogram). (ii) An expected-unlock-value clarification rule with an empirical pass
+probability prior from the supplied training pools. (iii) A restricted, calibration checked pair-outcome prior
+fitted on self-logged randomised rollouts, with missing answers treated as unknown rather than disagree‐
+ment. (iv) A residual-budget soft-field clarification rule no supplied baseline uses. (v) A variance-aware
+evaluation protocol with seed-block bootstraps, exact sign-flip tests and a power analysis of what the offi‐
+cial assessment can resolve.
+2. Formalisation
+2.1 Notation
+An episode runs over decision days 
+ plus 40 follow-up days. One pool holds 
+ members;
+member  has arrival 
+, exit 
+, an always-observable triple 
+, and an eleven-field
+hard bundle 
+ plus seven soft fields , each with a value, a status in 
+ and
+an observation day; 
+ when unknown. The primary metric is 
+ with 
+ the mem‐
+bers arrived by day 59 (never-served members stay in 
+). The official score is the unweighted mean of six
+family means, each over twenty private seeds. Short display names used in this note map to code identifi‐
+ers in Appendix A.
+2.2 Three-valued reciprocal feasibility
+The supplied eligibility(a, b) returns one of three values, and the distinction is the hinge of the whole
+problem:
+infeasible: at least one observed hard check fails in either direction. No clarification rescues this pair.
+needs clarification: no observed check fails, but at least one hard field is 
+. The pair is blocked; it
+may be feasible or infeasible and the policy cannot know which.
+feasible: every hard field observed for both members and every reciprocal check passes. Only these
+pairs may be proposed.
+Reciprocity means each check runs twice, once with each member as constraint holder: 's age must lie in
+'s window and
+'s in 's; zones must be accepted in both directions; one-directional preferences are ap‐
+plied both ways. Two consequences are easy to get wrong. Declined is absorbing: a member with one
+declined hard field can never appear in a feasible pair, on any day, under any policy (31.9% of develop‐
+ment members, 41.0% in cold start). Zones are opaque labels with set membership only; relocate is soft
+and does not override them.
+2.3 The outcome funnel
+An introduction produces a chain of five events the spec says must not be collapsed:
+MSMI requires a date within 30 days of assignment and both Yes answers within 3 days of the date. Our
+measured stage rates on 7,613 self-logged introductions:
+Stage
+Estimate
+Numerator / denominator
+Policy-controllable?
+Both respond by deadline
+0.5932
+4,516 / 7,613
+No
+• 
+• 
+• 
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+04
+
+===== PAGE 5 =====
+Stage
+Estimate
+Numerator / denominator
+Policy-controllable?
+Mutual accept, given both responded
+0.2573
+1,162 / 4,516
+Yes, via pair selection
+Date happens, given mutual accept
+0.7685
+893 / 1,162
+No
+MSMI, given a date
+0.0907
+81 / 893
+Partly
+The largest single loss is mutual acceptance: 74% of both-responded introductions never reach it
+(3,354 of 4,516 here; 2,043 of 4,559 losses in the head-to-head funnel, §6.4), and it is the stage pair selec‐
+tion acts on. The two stages outside the policy's control are severe in rate but smaller in count: 41% of in‐
+troductions never get two responses, and the on-time double-Yes fails for 91% of the dates that reach it
+(only 204 of 893), the 1 to 5 day answer delay against the 3-day window alone capping that transition at
+. The realistic ceiling on MSMI per assignment is therefore of order 
+, which is why
+a 200-member episode yields about one event and single-episode comparisons are meaningless. MSMI is
+also self-censoring: a successful pair retires both members, so the pairs that succeed stop being observ‐
+able.
+2.4 What the policy may observe
+Only observe() output: arrived members with values, statuses and observation days; the introduction list;
+feedback whose observed_day has been reached; the cumulative ask log; the day; remaining budget. No lat‐
+ent preference, no response propensity, no arrival forecast, no scenario label, which is why §4.5's non-
+stationarity problem has to be solved online rather than by looking up the family. The policy additionally
+receives the public episode seed as a deterministic offset for its own tie-break shuffles (§5.1); the seed is
+used only to make reruns reproducible, never as a lookup into or inference about outcomes, and no latent
+or private data crosses the interface. We use exactly this, plus offline-fitted assets derived from our own
+rollouts on declared training seeds.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+05
+
+===== PAGE 6 =====
+3. Structural diagnosis (analysis-only)
+This section reads simulator ground truth to measure the feasible graph. No policy imports it, and none of
+its numbers is available to a policy at inference time.
+The feasible graph is thin. Ten public seeds per family, complete disclosure, members arrived by day 59:
+Family
+Feasible-pair density
+Mean de‐
+gree
+Degree-0 mem‐
+bers
+Coverage ceil‐
+ing
+Effective
+edges
+development
+0.0127
+2.53
+33.9%
+0.399
+118.0
+sparse
+0.00245
+0.49
+67.0%
+0.178
+23.3
+cold start
+0.01337
+2.66
+32.1%
+0.341
+90.6
+delayed / shift /
+drift
+identical to develop‐
+ment
+2.53
+33.9%
+0.399
+118.0
+Coverage ceiling is the fraction of arrived members with at least one feasible partner who is also never de‐
+cline-blocked, the value a policy with free, perfect, instantaneous clarification would reach. Effective edges
+are feasible pairs with neither endpoint decline-blocked, an upper bound on total introductions since pairs
+cannot repeat within an episode. Full columns (median degree, decline-blocked shares, same-day match‐
+ings) and the binding-constraint histogram are in Appendix B.
+FIGURE 08
+Figure 8. Most of the pool can never be introduced, whatever the policy: partition of members into introducible, no-
+feasible-partner, both, and declined-hard-field only. Partition derived from the Appendix B table with the overlap counted
+once.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+06
+
+===== PAGE 7 =====
+In sparse, twelve opaque zones with single-zone acceptance put 67.0% of members at degree zero and
+leave 23.3 usable pairs in the whole pool; at the measured funnel rates that is about 0.12 MSMI per 100
+expected per episode, so the published zeros are what a supply-limited family produces, not a policy fail‐
+ure. In development, who_to_meet (74.2%), age window (60.9%) and geography (55.1%) are the three gates
+that block most pairs (Appendix B), and all three are cheap to reason about because the relevant quantities
+are always observable.
+4. Method
+Normalisation, modelling and allocation stay separate, with explicit boundaries so each can be ablated.
+4.1 Allocation: maximum-weight matching on a general graph
+A member holds at most one concurrent, outstanding introduction, so choosing edge 
+ forecloses
+every other edge incident on  or  until it resolves: the per-day decision is a matching, and any top- rank‐
+ing proposes collisions the simulator must reject. The graph is not bipartite (gender preferences need not
+partition the pool), so we use networkx.max_weight_matching, Edmonds' blossom algorithm (§8.5). The per-
+day objective is 
+ with 
+ estimating 
+. Independence assumption,
+stated explicitly: pair outcomes are not exactly independent (the ratio of observed joint acceptance to the
+product of directional marginals is 1.105), but given the world the residual dependence is weak enough
+that expected MSMI is approximately linear in the chosen edges. Two implementation errors we had to fix:
+weights must be positive (a negative score makes the matcher drop an edge whose true probability is
+small but strictly positive, a pure loss under supply constraint), and unknown is not disagreement (cod‐
+ing a known mismatch and an unknown answer both as 0 makes the matcher indifferent between "checked
+and clash" and "no idea"; our coding is 
+ / 
+ /  with the intercept absorbing the unknown case). We do
+not claim a sequential optimum; waiting is hypothesis H4.
+4.2 Clarification: expected unlock value
+For each askable member  we score
+and propose the highest-
+ members while the daily budget allows. 
+ is the candidate set (same zone,
+, no known hard failure); 
+ is the product of the §3.3 marginals over exactly the fields
+still unknown for this pair, an empirical prior from disclosed answers; 
+ is the soft-field matching value
+(§4.3); 
+ is 's opportunity cost, the weight of 's edge in yesterday's matching or 0, making
+ a reduced profit. Two honest simplifications: true blossom duals are not exposed by net‐
+workx, so 
+ approximates them from the realised matching, and the same-zone / age-gap prefilters discard
+cross-zone candidates whose unlock probability is 
+ of a same-zone one, an approximation for the
+10-second limit that we report as such. Never re-ask, never impute: declined hard fields exclude a mem‐
+ber from the candidate set; a null is unknown, never zero, never a rejection.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+07
+
+===== PAGE 8 =====
+4.3 Modelling: a restricted pair-outcome prior
+A randomised logging policy on eighteen declared training seeds (disjoint from the ten evaluation seeds)
+produced 108 episodes and 7,613 labelled introductions, 4,516 with both members responding; fea‐
+tures are recorded at assignment, labels harvested only after the 40-day follow-up. The target is
+ over the 7-day window: a direct MSMI model at a 1.13% base
+rate achieves held-out AUC 0.581, essentially no discrimination, while the acceptance stage carries the
+same pair-level signal at 40× the label density. Three nested ridge-logistic specifications were compared
+on six held-out training seeds; the shipped four-feature specification B wins on every held-out measure
+(log loss 0.5513, Brier 0.1830, AUC 0.598), beating both the 7-indicator spec A and the 18-feature spec C,
+which loses despite four times the parameters because observability is a confound, not a quality sig‐
+nal: mutual acceptance is 0.2724 with no soft field known and 0.2317 with all seven known. The shipped
+coefficients, the full specification search and the held-out calibration table are in Appendix B. The
+shipped model is calibrated out of sample (spec B: held-out log loss 0.5513, Brier 0.1830 on 1,462
+pairs from six held-out seeds, central bins within 0.040 of nominal), and §6.2c shows that calibration is not
+what makes a good edge weight here. Directional probabilities are not multiplied: the observed joint
+rate is 0.2538 against a product of fitted directionals of 0.2297 (ratio 1.105), so we model the joint directly.
+4.4 Residual-budget soft clarification
+The 12-unit daily budget is not binding: measured spend is ≈195 units per episode against a 720 ceiling
+because 31.9% of development members are decline-blocked, 36.4% arrive complete, and the askable pop‐
+ulation is exhausted well before the horizon (§6.6). Outcome-relevant soft fields are observed for only
+~46% of members in development and ~34% in cold start, and no baseline spends a unit on them. Once
+hard-bundle asks are exhausted, our rule converts residual units into 1-unit soft answers, prioritising
+(member, field) pairs by 
+, lifting realised spend from 195 to ~558 units. Whether that
+converts into MSMI is measured in §6, not assumed.
+4.5 Online adaptation on dense proxies
+MSMI matures 30+ days after assignment, about one positive label per episode, so an MSMI-only bandit is
+structurally starved. Directional responses (two per introduction, visible within seven days) give ~120 us‐
+able observations by mid-episode; we refit the §4.3 model online by ridge-anchored IRLS towards the off‐
+line prior, excluding non-responses from the update, and admit a single day/60 coefficient, zero in the off‐
+line prior, for drift/shift, whose measured acceptance falls 0.263 → 0.237 → 0.164 across day blocks. Car‐
+ried memory (coefficient vector, bounded feature buffer, counters) stays within the 1 MiB cap; we will veri‐
+fy the serialised size before Round 2.
+4.6 Audit ledger and deliberate non-actions
+Every proposed pair emits the observed evidence per field, unresolved fields, the binding constraint when
+rejected, the runner-up and its weight, and the reduced profit; explanations keep model uncertainty, 
+missing data and stochastic outcome separate, and no latent value is ever presented as an observation.
+We deliberately did not: read hidden state at inference; build a latent-probability oracle rung (the simulat‐
+or exposes no latent pair probabilities, so it was dropped); claim inverse-propensity results on the supplied
+files (propensity is null; doubly-robust evaluation on our own logs is planned); or describe a Thompson-
+plus-value-of-information hybrid we do not implement.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+08
+
+===== PAGE 9 =====
+5. Experimental design
+5.1 Worlds, seeds and splits
+Use
+Seeds
+Fam‐
+ilies
+Episodes
+per method
+Prior fitting /
+model selection
+18 declared training seeds: 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61,
+67, 71, 73, 79; fitted on 12, evaluated on 6 disjoint held-out seeds (§4.3)
+all six
+108 logged
+Head-to-head
+evaluation
+101, 202, 303, 404, 505, 606, 707, 808, 909, 1010
+all six
+60
+Training and evaluation seeds are disjoint; the split is by world, the only unit that respects the dependence
+structure, since all 200 members of a pool share one generator draw. Every method sees the identical
+(seed, variant) worlds and policy memory is empty at every episode start. Randomness is fully de‐
+clared. The world generator is seeded by the simulator from (seed, variant) and we never touch it. Inside
+the policy, every draw uses a fixed generator seeded only from public inputs: the shuffled feasible matcher
+uses random.Random(17 + day) and the residual-soft ask tiebreak uses random.Random(917 + seed), where
+seed is the public episode identifier handed to the policy for reproducibility; it enters only as an offset into
+our own shuffle, is never used to infer an outcome, and the same offsets are used for every configuration
+so that ties in §6 are ties of rule rather than of draw. There is no wall-clock, no os.urandom and no unseeded
+random call in the decision path, so a rerun is bit-identical. Statistical resampling uses ran‐
+dom.Random(20261009), fixed independently of the policy. All results are in-process against the public simu‐
+lator on public seeds, not official subprocess or Docker timings.
+5.2 Hypotheses and falsification criteria
+#
+Hypothesis
+Falsified if
+H1
+Unlock-value targeting beats count-based and un‐
+ranked asking at a fixed matcher
+The 95% seed-block CI of the difference excludes 0 in favour
+of unlock at 10+ seeds per family
+H2
+Any asking policy beats no clarification on coverage
+and MSMI
+CI includes 0
+H3
+Dense-response adaptation is no worse anywhere,
+better in drift/shift
+Worse overall with CI excluding 0, or no gain in drift/shift
+H4
+Daily clearing beats 
+-day batching in supply-rich
+families, not in sparse
+The ordering is the same in both regimes
+H5
+Residual soft clarification does not help, because the
+matching is near-forced
+CI excludes 0 in either direction
+H6
+Coverage of any valid policy converges to the §3 ceil‐
+ing within 2 pp in development
+A policy exceeds the computed ceiling
+H5 and H6 are stated as negative predictions on purpose: the structural analysis makes a falsifiable claim
+about what cannot be improved.
+5.3 Statistics and power
+The resampling unit is the seed block, one seed's mean across the six families, preserving the within-seed
+correlation the official score induces. Primary score is the unweighted mean of six family means exactly
+as specified; denominators are never pooled and no best seed is selected. 95% CI is a percentile bootstrap
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+09
+
+===== PAGE 10 =====
+over the ten seed blocks (10,000 draws, analysis seed 20261009); paired tests are exact two-sided sign-
+flip permutations (
+ arrangements, smallest attainable p = 0.002); W/T/L counts over the 60 paired epis‐
+odes accompany every interval. No multiplicity correction is applied; p-values are exploratory and the
+number of contrasts is stated. The within-method per-episode SD of MSMI/100 is 0.457 (range 0.314 to
+0.586), so 
+ gives: 60 episodes per arm resolve about 0.234; the official 120 epis‐
+odes about 0.165, comparable to the entire 0.400 to 0.592 spread we measured; a three-seed pilot about
+0.43, larger than the distance between our best method and the starter greedy, which is why no narrative
+is built on the pilot's ordering. Episode scores are scaled near-Poisson counts (one event moves the score
+by 0.5), so the normal formula is an approximation and exact sign-flip p-values plus W/T/L are reported
+alongside every interval. Validity threats (public seeds only, winner's curse, in-process timing, unadjusted
+multiplicity, rare events, the label-cutoff bug of §7.5) and their mitigations are tabulated in Appendix D.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+10
+
+===== PAGE 11 =====
+6. Results
+Scale and replication. 1,020 head-to-head episodes across 17 configurations, 10 public seeds and 6 fam‐
+ilies, plus 180 oracle-ladder, 108 logging and 18 equivalence episodes: zero invalid episodes out of
+1,326. Before reporting anything new we checked that our independent harness reproduces the previously
+published ten-seed screen, exactly to the event count on all five cells (0.350/0.167/0.358/0.408/0.525;
+42/20/43/49/63 events), and §6.7 repeats the check decision-for-decision against the organisers' reference
+policy.py.
+6.1 The headline is a negative result, and it is the useful one
+Every asking configuration saturates the structural coverage ceiling, so the primary score is sup‐
+ply-determined and the differences between sensible asking policies are below what 60 episodes
+can resolve.
+FIGURE 01
+Figure 1. MSMI per 100 arrived members with 95% seed-block CIs for all configurations against the official greedy line.
+Intervals overlap everywhere except the no-clarification gap; the best-of-17 cell is screening, not confirmation.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+11
+
+===== PAGE 12 =====
+FIGURE 02
+Figure 2. Coverage against the structural ceiling: asking at all saturates coverage (97 to 98% of 0.352 pooled), and how
+you ask moves it by about 0.003.
+Read down the assignments column of the full table (Appendix B): across the sixteen asking configura‐
+tions, total introductions over 60 episodes move from 4,555 to 4,681 and coverage from 0.3399 to 0.3432,
+and every one of them sits at 97 to 98% of the §3 ceiling, including the unmodified starter greedy. That
+confirms H6 and changes what the problem is: clarification is a step function, not a lever skilled target‐
+ing pulls further. Asking at all takes coverage 0.120 to ~0.342 and MSMI/100 0.167 to ~0.45; asking clev‐
+erly takes it nowhere measurable, because the ceiling is a property of the generated world. Only no_ask
+sits away from the ceiling at 33% of it; its contrast against the starter greedy is +0.183 MSMI/100, 95%
+seed-block CI [+0.042, +0.325], sign-flip p = 0.055, 22 wins / 33 ties / 5 losses, 42 events against
+20. H2 is supported: the bootstrap CI excludes zero, and the support is structural rather than a single p-
+value, since all sixteen asking-versus-no-ask contrasts among the 136 enumerated pairwise con‐
+trasts have intervals excluding zero, from +0.183 to +0.425 (full enumeration in results/analys‐
+is.json).
+Fresh-seed split. Excluding the three pilot seeds on which the incumbent was first chosen, incumbent
+versus official greedy on seeds 404 to 1010 alone is +0.143 MSMI/100, 95% seed-block CI [−0.009,
++0.295], 4 wins / 3 ties / 0 losses 
+over the seven seeds, computed from
+ results/
+scaled_factorial_10seeds.json. The direction survives off the pilot seeds; at seven seeds the interval still
+straddles zero, so this remains a screen, and the ten-seed pre-specified +0.175 remains a recomputation
+on selection data.
+Soft-ask screen, pilot to holdout. The residual soft-ask rule was screened on the pilot and then tested
+held-out: on the three pilot seeds it added 3 MSMI events (selection data, descriptive only); on the seven
+held-out seeds 404 to 1010 it gives +0.024 MSMI/100, 95% seed-block bootstrap CI [−0.071,
++0.131], exact sign-flip p = 0.844, 42 vs 40 events, at about +83 ask units per episode with virtually
+unchanged coverage. This is the cleanest pilot-to-holdout result in the note: a small, statistically null gain
+bought with a third more asking.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+12
+
+===== PAGE 13 =====
+The negative result is made precise by the same enumeration: among the thirteen configurations that both
+ask and match, only three of 78 pairwise intervals exclude zero, all the same comparison in different cells,
+a fitted-prior edge weight losing to a hand-coded one (§6.2c). Everything else is pair quality on a
+fixed volume, bounded twice: by a mean-degree-2.5 matching with little room to choose, and by a funnel
+whose largest loss, mutual acceptance (45% of the 4,559 non-MSMI assignments), is where pair selection
+acts, while the policy-uncontrollable stages (non-response 41%, on-time answers 9%) set the floor.
+6.2 The factorial: what moved and what did not
+Asking and the weight coding move the score; ask targeting, fitted probabilities and online ad‐
+aptation do not.
+FIGURE 06
+Figure 6. All twelve pre-specified contrasts with 95% seed-block CIs: only asking-vs-none, the pre-specified incumbent
+contrast and the best-of-17 cell exclude zero on the positive side, and the fitted-prior-vs-core-4 contrast in the potential-ask
+cell excludes it on the negative side.
+(a) The best cell is potential asks + signed core-4 at 0.592 (71 events), +0.242 versus official
+greedy, CI [+0.125, +0.383], p = 0.008, 27/27/6. We state the selection problem first: it is the best of sev‐
+enteen screened configurations, p = 0.008 clears neither the 0.05/12 ≈ 0.004 nor the 0.05/136 ≈ 0.0004
+Bonferroni threshold, and 60 episodes resolve about 0.234 against an effect of 0.242. The defensible claim
+is that this configuration scored 0.592 on ten public seeds and must be re-tested on fresh seeds before it is
+believed.
+(b) The matcher improvement decomposes into two halves, neither significant alone. Global
+matching vs greedy ordering at fixed weights: +0.058, CI [−0.058, +0.167], p = 0.445. Signed core-4 vs 7-
+soft agreement count: +0.075, CI [−0.025, +0.192], p = 0.328. Together +0.133, CI [+0.008, +0.258], p =
+0.102, equal to the sum of the halves to three decimals. The coding half is not a model: it fixes treating a
+known disagreement as no information, and letting weights go non-positive so the matcher discards feas‐
+ible edges.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+13
+
+===== PAGE 14 =====
+(c) Ask targeting does not help, and the fitted prior actively hurts. At a fixed matcher, unlock-value
+vs count-based potential asking is −0.000 (CI [−0.167, +0.200], 17/26/17, both 63 events); vs default ask‐
+ing it is +0.117 at 7-soft weights but +0.008 at core-4 and −0.000 at the fitted prior. H1 is not suppor‐
+ted. The fitted logistic prior is below the hand-coded signed rule in all three ask cells, and in the potential-
+ask cell the gap excludes zero: −0.125, CI [−0.192, −0.067], p = 0.008, 2/43/15. The direction is con‐
+sistent across all three ask rules, which is harder to dismiss than one cell.
+Why a calibrated probability loses. A calibrated  is the theoretically correct single-day edge weight,
+but max_weight_matching with maxcardinality=False is scale-sensitive: it trades matching more pairs against
+matching better pairs, and that trade depends on the spread of the weights. Our prior maps every feasible
+pair into 
+, a band so narrow the optimiser behaves almost like maximum-cardinality match‐
+ing; the signed core-4 rule spans 
+ and the 7-soft count 
+, imposing a real quality/car‐
+dinality trade. That a correctly calibrated probability (spec B, held-out log loss 0.5513, Brier 0.1830, cent‐
+ral calibration bins within 0.040 of nominal; Appendix B) underperforms a mis-scaled heuristic is consist‐
+ent with a weight-scale mechanism; the separable test (rerun the prior under a monotone spread or
+rank transform) is named Round 2 work (§8.1), as is the deeper argument that the myopic single-day ob‐
+jective is misspecified under eight-day busy windows, non-repeatable pairs and permanent retirement.
+6.3 Scenario-level results: one family reverses the ordering
+Sparse is supply-limited for everyone, and cold start is the one family where untargeted asking
+beats our targeted rule.
+FIGURE 03
+Figure 3. Family-level heatmap: every configuration collapses in sparse, the official greedy wins cold start, and the primary
+column spans 0.167 to 0.592 against per-family ceilings of 0.40 / 0.18 / 0.34 / 0.40 / 0.40 / 0.40.
+Sparse scores 0.00 to 0.15 for every configuration, consistent with the ~0.12 expected from 23.3 usable
+pairs and the measured funnel; a zero is not an equivalence result. Cold start reverses the development or‐
+dering: default-ask cells reach 0.600 where unlock-value cells reach 0.300 to 0.350 (about 12 vs 6 events
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+14
+
+===== PAGE 15 =====
+in this one family; exploratory), explained in §7.3. Shift and drift do not reward the offline prior, exactly as
+§4.5 predicted, and the online correction did not repair this (§6.5). The full per-family table is in Appendix
+B.
+6.4 The funnel: volume is identical, conversion differs in the noisiest stage
+All sixteen asking configurations make the same introductions; only the on-time double-Yes
+stage separates them, and its spread is of the order of sampling noise.
+FIGURE 04
+Figure 4. Where introductions are lost on the way to an MSMI, summed over 60 episodes and averaged over the 16 asking
+configurations: the mutual-acceptance stage is the largest loss and the one pair selection acts on.
+P(both respond) spans 0.585 to 0.617 across methods and P(date | mutual) 0.75 to 0.80, matching the
+0.769 measured on 1,162 logging mutual acceptances: both are constants of the world. P(mutual | respon‐
+ded) spans a 2.2-point band; P(both on time | date) spans 0.228 to 0.305 on 515 to 577 dates, where the bi‐
+nomial SD of one such rate is 0.019 and the expected range of thirteen draws about 0.06, close to the
+0.077 observed. The stage that separates top from bottom is therefore the one least connected to anything
+a matcher controls, and we do not interpret the 71-vs-42 event gap as proof that any weighting scheme is
+better; it is a candidate that survived one screen. The loss structure is unambiguous: of the 4,559 non-
+MSMI assignments, 1,880 (41%) are lost at response, 2,043 (45%) at mutual acceptance, 144 (3%) at
+the date stage, 408 (9%) at the on-time answer stage and 84 (2%) at the final both-Yes step. Per-method
+funnel counts and stage rates are in Appendix B.
+6.5 Oracle ladder: perfect information buys almost nothing
+An oracle with free, complete, instantaneous disclosure of every non-declined field adds 0.001
+coverage and 1.2 assignments over uniform random feasible pairing: information is not the bind‐
+ing constraint.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+15
+
+===== PAGE 16 =====
+FIGURE 05
+Figure 5. Oracle ladder on 30 dev/sparse/cold worlds per rung: coverage and assignments are flat from R1 to R5 while
+mutual-acceptance quality rises about 12% and does not convert; whiskers are Poisson SDs on the 30-episode event counts.
+From R1 (uniform random feasible) to R5 (oracle plus maximum-cardinality matching), coverage moves
+0.297 to 0.298 and assignments 61.9 to 63.1, on a ladder spanning 14 to 19 events per 30 episodes where
+the Poisson SD at 16 events is 4; only R0 (no clarification, 6 events) is separable. Perfect information raises
+P(mutual | responded) from 0.245 to about 0.275, a 12% relative gain on ~1,100 both-responded pairs per
+rung, and it does not convert: MSMI per assignment falls 0.0097 to 0.0074 because downstream stages
+move the other way within their noise. Two caveats, because this table is the one most easily misread. R3
+carries the fitted prior (the weakest weight rule, §6.2c), so R3 scoring below R2 reproduces §6.2c inside
+the ladder rather than indicting the method; and the ladder covers three families, so its means are internal
+comparisons on identical worlds, not six-family primaries. Two conclusions survive both caveats: no clari‐
+fication strategy closes a gap the oracle does not close, which is why the §6.2 targeting nulls should have
+been expected; and a surrogate (mutual acceptance, the first tie-break) can move while the primary does
+not, so reporting the surrogate alone would have produced a confident false claim. Rung values and the
+per-family ladder are in Appendix B.
+6.6 Cost, saturation and reproducibility
+The ask budget is not binding and never was: the askable population saturates by day 15 to 20,
+leaving 40 days of budget with nobody left to ask. Every hard-only rule spends about 195 of 720 units
+(soft-ask rules ~582 to 614), and the saturation probe (Appendix B, Figure 7) shows every ranked rule
+reaching the same 140-member plateau in development (132 in sparse) by day 15 to 20, while no_ask plat‐
+eaus at 75: clarification moves the usable graph from 75 to 140 members, exactly the H2 step, and live
+feasible edges collapse to single digits by day 10 under every rule. The binding constraint is that the feas‐
+ible graph is consumed faster than it is replenished, which is why §8.1 prioritises waiting and batching, the
+only lever acting on the timing of consumption. Cost and waiting-time accounting (mean first-introduction
+wait 6.3 days for hard-only rules vs 3.95 for no_ask, whose short wait is bought with 12% coverage; un‐
+served members 131.6 vs 176.0 of 200) is in Appendix B. Reproducibility of the supplied baselines:
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+16
+
+===== PAGE 17 =====
+our in-process harness reproduces the organisers' reference policy.py decision-for-decision on seeds 101
+to 606 across all six families: every ask list, pair batch and final metric identical for greedy, no_asks and
+random.
+7. Failure analysis
+7.1 Sparse geography: supply, not policy
+Twelve opaque zones with single-zone acceptance put 67.0% of sparse members at degree zero and leave
+23.3 usable pairs; consuming every one of them at the measured funnel yields 0.122 MSMI per 100
+against 0.619 for a development world at full utilisation, so sparse is a floor on the primary score, not a
+test of skill. Combining the edge-supply caps with the funnel gives an arithmetic bound on the primary
+score at different pair-selection qualities (Appendix B): 0.512 at our measured logging quality, 0.606 at the
+incumbent's published quality, up to 1.009 at best-case selection. This is a bound, not a forecast: it as‐
+sumes every effective edge is consumed and ignores timing. Our randomised logging policy consumed 71%
+of the edge supply in development (87% in sparse) and scored 0.375 against the 0.512 bound, so the hon‐
+est reading is that the achievable primary sits between roughly 0.5 and 0.8, and both the published in‐
+cumbent (0.525) and our best screened cell (0.592) are inside that band. Any claim of a large multiple over
+the incumbent should be treated with suspicion until the bound is beaten, not merely approached. The cor‐
+rect sparse strategy is selective, not expansive: with 23 pairs, revealing the good ones early beats reveal‐
+ing all of them, because members exit. Caveat: only three distinct sparse worlds exist among the ten public
+seeds.
+7.2 Withheld answers: a permanently excluded third of the pool
+Because declined is absorbing, 31.9% of development and 41.0% of cold-start members can never appear
+in a feasible pair; unioned with degree-zero isolation the never-introducible share is 60.2% / 66.0% / 82.3%
+across development / cold start / sparse (Figure 8, Appendix B). Three consequences: coverage must be re‐
+ported against the ceiling, not against 1.0 (our best configuration reaches 0.465 on development seed 101,
+equal to that world's per-seed ceiling); clarification spent on decline-blocked members is destroyed, and
+every ask rule we test filters them first; and missingness here is informative about availability, not prefer‐
+ence (acceptance is lower when more soft fields are observed, 0.2724 to 0.2317), so any model encoding
+observability as a feature learns a spurious preference; the fix is to exclude the indicator, not re-weight by
+it.
+7.3 Cold start: where our own ask rule loses
+Cold start pre-observes the hard bundle for only 20.6% of members (36.4% elsewhere), has the highest de‐
+cline-blocked share (41.0%), and ~34% soft-field observation, so the weights 
+ that drive 
+ are com‐
+puted from mostly-empty inputs and the ranking degenerates to 
+ with more noise. This is the sharpest
+falsification of H1: the advantage of a value-ranked ask rule depends on having enough observed soft sig‐
+nal to rank with. The named fix is a shrinkage rule (blend 
+ towards the count-based score as observed
+soft fraction falls), listed as planned work with its test: does the cold-start reversal disappear under shrink‐
+age?
+7.4 Delayed feedback and the follow-up window
+In delayed, date offsets reach 33 days against the 30-day window, so some introductions with a date and
+two timely Yes answers still fail the outcome definition; our label helper checks date_day − assigned_day ≤
+30 explicitly and counts the two failure routes separately. Right-censoring is handled by construction: la‐
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+17
+
+===== PAGE 18 =====
+bels are harvested after the 40-day follow-up and unresolved introductions return None, excluded from
+learning rather than coded 0. The operational consequence: feedback arrives too late to help the epis‐
+ode that earned it; a day-40 introduction matures after day 70, past the horizon, which is the whole argu‐
+ment for §4.5.
+7.5 An internal audit: the label-cutoff bug
+Our earlier helper labelled a date plus two timely Yes answers as MSMI positive without checking the
+30-day window; one audited instance (delayed, seed 303: assigned day 31, date day 62). The simulator's
+own scoring was always correct, so no reported score was affected; only online-learning updates could be
+corrupted. Consequences we accept: every learning-based row from the three-seed pilot (Thompson 0.472,
+GP-UCB 0.389, GP-mean 0.222) is provisional and not cited as a result; the corrected label is used for all of
+§4.3 and §6; we replaced the old learners rather than re-running them.
+7.6 Competition for the same candidate
+At mean degree 2.53 competition is the norm; a max-weight matching resolves it globally while the starter
+greedy resolves it by sort order. Two dynamic forms remain named, not solved: temporal competition
+(introducing  to  today consumes the pair permanently and makes both busy for eight days; if  has a bet‐
+ter partner currently busy or not yet arrived, waiting dominates; H4) and success consumes supply (a
+mutual second-Yes retires both members, so maximising MSMI spends the scarcest resource in the system,
+and the optimal policy may be more selective than the single-day objective implies; quantifying this needs
+a two-stage look-ahead we have not implemented).
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+18
+
+===== PAGE 19 =====
+8. Round 2 plan, disclosure and references
+8.1 What is done, what is planned
+Item
+Status
+Structural diagnosis; pass probability prior; 108-episode randomised log;
+restricted pair-outcome prior; unlock-value rule; residual-soft rule
+Done
+Online ridge-anchored adaptation on directional responses
+Done and falsified: MSMI outcomes identical to its
+own static version in all 60 episodes while six as‐
+signments differed (4,658 vs 4,652; §6.5); kept as
+an instrumented null
+Head-to-head §6, funnel, oracle ladder, baseline equivalence
+Done
+Cold-start shrinkage rule; waiting/batching ablation 
+; ex‐
+act blossom duals; doubly-robust OPE on own logs; two-stage look-
+ahead; JSON protocol adapter and container timing; 20-seed public runs
+and 1 MiB check
+Planned
+Fitted prior under a monotone spread/rank transform (scale vs misspe‐
+cification, §6.2c)
+Planned
+Latent-probability oracle rung
+Dropped (§4.6)
+8.2 Round 2 build order
+Wrap the winning configuration in the JSON protocol; handle empty population and empty feasible
+graph explicitly.
+Ship hard_priors.json and outcome_prior.json as declared inference assets; confirm the 2 GiB image
+and 1 MiB memory caps.
+Containerise and measure; the O(n²) eligibility pass (~20k pair checks per phase at 200 members) is
+the term to watch against the 10-second limit.
+Run the cold-start shrinkage rule and the batching ablation; keep whichever survives a paired test at
+20+ seeds.
+Publish per-episode machine-readable results for the four required comparisons on identical seeds,
+plus funnel and waiting-time tables, pinned with SHA-256.
+8.3 AI tools disclosure
+This note and the accompanying code were produced with the assistance of large-language-model coding
+agents, used for: reading and summarising the starter kit and its documentation; drafting and debugging
+the experiment harness, the policy implementations and the analysis scripts; and drafting and critically re‐
+vising this document. Separate chat-assistant sessions (Claude- and Gemini-family models, via Arena.ai
+Agent Mode and other tools) additionally contributed ideation, cross-checking of the draft against its own
+tables, and pre-submission review; every such suggestion was accepted only after arithmetic or artefact
+cross-check, and the final decisions rest with the team. All experimental numbers reported here were pro‐
+duced by executing the committed Python code against the organisers' public simulator release 1.0.0 on
+public seeds, and every table is reproducible from the scripts named in the README's reproduction sec‐
+tion. No model was used to generate results, and no result was accepted without a corresponding artefact
+on disk. One model-assisted implementation contained the label-cutoff defect of §7.5; it was found by hu‐
+man-directed audit of the code against §8 of the problem statement, not by the model. Where an earlier AI-
+1. 
+2. 
+3. 
+4. 
+5. 
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+19
+
+===== PAGE 20 =====
+generated draft contained claims contradicted by our own audit (bipartite/Hungarian allocation, zone adja‐
+cency, "one introduction per person per day", regret curves, exact value of information, a Thompson-plus-
+VOI hybrid), those claims are removed here and asserted nowhere in this note.
+8.4 Synthetic-data disclaimer
+All members, profiles, preferences, conversations, introductions and outcomes are newly generated or au‐
+thored synthetic content; demographic proportions and outcome behaviour are invented assumptions, not
+fitted distributions of real people. Simulator performance is an engineering and research test, not evidence
+that any model can predict a relationship, and nothing here should be presented as product effectiveness.
+Specifically, these invented outcomes cannot establish that any feature we weighted predicts real compat‐
+ibility (we recovered the generator's decision, not the world's); that a higher MSMI is a better product out‐
+come (MSMI is a synthetic proxy whose funnel is dominated by invented response and punctuality rates);
+that clarification is acceptable to real people (a simulated member never experiences being asked, declin‐
+ing, or objecting to timing); or anything about fairness (the generator draws acceptance uniformly and in‐
+dependently of demographics, so our runs contain no bias to detect, and absence of measured disparity
+here is not evidence of absence in production). Real use would require, in order: a schema adapter with an
+audited missing-answer rule; a consent layer with per-question withdrawal, since declined must be re‐
+spectful in production as it is absorbing here; verified-attribute eligibility with a human review path; out‐
+come labels from actual consented follow-up, which would face the censoring problem of §2.3; prospective
+validation powered on the event rate that actually occurs; and a fairness audit across protected attributes,
+which this simulator structurally cannot supply. None of that is started. The method is portable (three-val‐
+ued feasibility algebra, supply diagnosis, matching formulation, seed-block statistics), but every number in
+§6 is a property of a generator we did not write.
+8.5 References
+All works below were located and checked against their publishers' records on 9 to 10 October 2026;
+volume and page numbers are as printed there (Edmonds carries no issue number in the publisher record).
+We have not fabricated a citation to fill a gap, and we cite nothing we have not located.
+Akbarpour, M., Li, S., & Oveis Gharan, S. (2020). "Thickness and Information in Dynamic
+Matching Markets." Journal of Political Economy, 128(3), 783 to 815. DOI 10.1086/704761. The Patient
+algorithm that waits to thicken the market loses exponentially less than Greedy, but only when the
+planner can identify agents about to depart; when departure times are unobservable, Greedy is
+close to optimal. That precondition is precisely the empirical question our §6.6 saturation probe
+answers here: feasible edges vanish because members are consumed, retire permanently, or age out at
+day 60, and the first two are visible in the observation contract. H4 is therefore the one lever the
+theory says could still be large, and §8.2 schedules it.
+Edmonds, J. (1965). "Paths, Trees, and Flowers." Canadian Journal of Mathematics, 17, 449 to 467.
+DOI 10.4153/CJM-1965-045-4. The blossom algorithm, the correct general-graph maximum-matching
+primitive for a pool that is not bipartite, and the reason §4.1 uses networkx.max_weight_matching rather
+than a Hungarian assignment.
+Dudík, M., Langford, J., & Li, L. (2011). "Doubly Robust Policy Evaluation and Learning."
+Proceedings of the 28th International Conference on Machine Learning (ICML '11), 1097 to 1104. The
+estimator we plan to apply to our own randomised logging rollouts, where propensities are known by
+construction (§8.1).
+Russo, D., Van Roy, B., Kazerouni, A., Osband, I., & Wen, Z. (2018). "A Tutorial on Thompson
+Sampling." Foundations and Trends in Machine Learning, 11(1), 1 to 96. Background for the label-
+starvation argument in §4.5: at about 0.9 MSMI events per episode, a posterior over pair outcomes
+cannot be updated often enough to matter inside a 60-day episode.
+• 
+• 
+• 
+• 
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+20
+
+===== PAGE 21 =====
+Hitsch, G. J., Hortaçsu, A., & Ariely, D. (2010). "Matching and Sorting in Online Dating." American
+Economic Review, 100(1), 130 to 163. DOI 10.1257/aer.100.1.130. Motivation for treating
+introductions as a two-sided allocation problem with competition for the same candidates (§7.6).
+Karp, R. M., Vazirani, U. V., & Vazirani, V. V. (1990). "An Optimal Algorithm for On-line Bipartite
+Matching." Proceedings of STOC '90, 352 to 358. DOI 10.1145/100216.100262. Foundational online-
+matching background; its bipartite one-sided-arrival model does not transfer to this simulator's
+general-graph, reciprocal-feasibility setting, and we do not imply that it does.
+Gamlath, B., Kapralov, M., Maggiori, A., Svensson, O., & Wajc, D. (2019). "Online Matching with
+General Arrivals." Proceedings of FOCS 2019, 26 to 37. DOI 10.1109/FOCS.2019.00011. The closest
+model-family reference for general arrivals; our daily batch decisions and clarification actions still
+make the setting distinct.
+Saar-Tsechansky, M., Melville, P., & Provost, F. (2009). "Active Feature-Value Acquisition."
+Management Science, 55(4), 664 to 684. DOI 10.1287/mnsc.1080.0952. Cost-aware information-
+acquisition context for the clarification problem; an analogy for budgeted questioning, not a direct
+matching algorithm.
+Vouchsafe / Romeo & Juliet (2026). The One Introduction Problem, final participant specification
+1.0.0, with the bundled docs/DATA_CONTRACT.md, docs/POLICY_INTERFACE.md and docs/SUBMISSION.md.
+Authoritative for every rule quoted in this note; where an earlier draft of our own work conflicted with
+it, the specification won and the draft was corrected (§8.3).
+8.6 Data and software provenance
+Simulator and data: organisers' public synthetic release 1.0.0; the bundled starter/kit.py is
+unchanged and records upstream commit a8e26b35118cfa8e886a02f93984923e43ab64f6 (starter/
+SOURCE.md, starter/LICENSE, starter/DATA_LICENSE.md). Every member and outcome is synthetic (§8.4).
+No private seeds, worlds, organiser files or real-user data were used; the only external data are the six
+supplied training pools used for the §3 marginals.
+Experiment code carries no separate top-level license; the scripts are those named in the README
+reproduction section. The three official baselines were re-verified through the organisers' reference
+evaluator in trusted-local subprocess mode (54/54 episodes identical;
+ research/
+VERIFICATION_2026_10_09.md).
+The three-seed soft-question screen (72 episodes) and the seven-seed follow-up (42 episodes) were run
+on the author's Ubuntu VM. The shared bundle contains the aggregate soft-question results but not
+the VM-generated row-level JSON; this is documented in research/PROVENANCE_AND_ARTIFACT_STATUS.md.
+8.7 Computational environment and reproducibility
+All core factorial, head-to-head and oracle-ladder episodes ran in-process; the exact execution host of
+those runs is not recorded in this bundle and no hardware specification is claimed. Wall times in Appendix
+B are in-process seconds per episode, not official per-invocation or Docker timings; container validation is
+Round 2 work (§8.2). Dependencies are pinned in requirements.txt; the starter kit is standard library only.
+Reproducibility anchors: every policy random draw is seeded from public inputs only (§5.1); bootstrap in‐
+tervals use analysis seed 20261009; reruns are bit-identical by construction. The full script inventory and
+output map (§9 of earlier drafts) now live in README.md.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+21
+
+===== PAGE 22 =====
+Appendix A. Code-name key
+Short name used in this note
+Code identifier
+Potential asks · core-4 · global match (best of 17)
+lab_potential_core4_maxw
+Potential asks · 7-soft · global match (incumbent)
+lab_potential_maxw
+Unlock asks · 7-soft · global match
+unlock_soft7_maxw
+Unlock asks · core-4 · global match
+unlock_core4_maxw
+Default asks · core-4 · global match
+defaultask_core4_maxw
+Unlock asks · greedy ordering
+unlock_greedy
+Unlock + soft asks · fitted prior · global
+unlocksoft_prior_maxw
+Default asks · 7-soft · global match
+defaultask_soft7_maxw
+Unlock asks · fitted prior · global
+unlock_prior_maxw
+Unlock asks · fitted prior + online adapt.
+unlock_prior_online_day
+Unranked full budget · core-4 · global
+fullbudget_unranked_maxw
+Random feasible (official)
+random_feasible
+Greedy + default asks (official baseline)
+greedy
+No clarification (official)
+no_ask
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+22
+
+===== PAGE 23 =====
+Appendix B. Full tables
+B.1 Structure under complete disclosure
+Ten public seeds per family, complete disclosure, members arrived by day 59:
+Family
+Feasible-pair
+density
+Mean de‐
+gree
+Median de‐
+gree
+Members with de‐
+gree 0
+Decline-
+blocked
+Coverage
+ceiling
+Effective
+edges
+Max same-day
+matching
+development
+0.0127
+2.53
+2
+33.9%
+31.9%
+0.399
+118.0
+34.4
+sparse
+0.00245
+0.49
+0
+67.0%
+32.8%
+0.178
+23.3
+15.3
+cold start
+0.01337
+2.66
+1
+32.1%
+41.0%
+0.341
+90.6
+28.6
+delayed / shift /
+drift
+identical to devel‐
+opment
+0.399
+118.0
+34.4
+B.2 Binding constraints (development, seed 101, all 19,900 pairs)
+Blocking reason
+Pairs blocked
+Share of 19,900
+who_to_meet
+14,757
+74.2%
+age window
+12,116
+60.9%
+geography
+10,974
+55.1%
+wants_children conflict
+4,761
+23.9%
+smoking
+4,545
+22.8%
+relationship_structure
+3,600
+18.1%
+partner_children
+2,970
+14.9%
+schedule
+2,684
+13.5%
+feasible
+273
+1.37%
+Reasons overlap, so shares do not sum to one.
+B.3 Empirical pass probability prior (six training pools only)
+Unknown field
+Pass probability
+Notes
+who_to_meet
+0.494 / 0.480 / 0.461
+by partner gender: woman / man / non-binary
+acceptable_zones, same zone
+1.000
+own zone is always accepted
+acceptable_zones, different zone
+0.0756
+only the 22.9% of members with two zones can pass
+schedule overlap
+0.856
+relationship_structure equal
+0.793
+88.3% monogamous
+wants_children no conflict
+0.755
+yes 0.362 / no 0.339 / unsure 0.300
+smoking acceptable
+0.878
+50.4% accept any; 75.4% are non-smokers
+partner_children acceptable
+0.921
+15.5% have children
+age window
+~0.13
+marginal used by the unlock prior, see note
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+23
+
+===== PAGE 24 =====
+Age-window conditioning. Age is always observable, so the age window is never an unknown field in the
+eligibility check; §B.2's figure (age blocks 60.9% of fully-disclosed pairs, a ~0.39 pass rate over all 19,900
+pairs) is measured on the full pair population, while the ~0.13 row is the marginal the unlock-value rule
+uses when scoring blocked candidate pairs under the §4.2 prefilter (same zone, |age gap| ≤ 10), estimated
+from the six training pools. The two numbers answer different questions and must not be compared dir‐
+ectly. The same-zone / different-zone asymmetry is the sharpest fact in the table: a blocked cross-zone pair
+carries roughly 
+ of the unlock probability of a blocked same-zone pair.
+B.4 Pair-outcome prior: specification search, coefficients, calibration
+Specification
+Features
+Held-out log loss
+Null
+Brier
+AUC
+A
+7 agreement indicators
+0.55198
+0.56650
+0.18337
+0.595
+B (shipped)
+4 core agreement indicators
+0.55125
+0.56650
+0.18298
+0.598
+C
+A + 7 both-known + age gap + same-zone + day
+0.55722
+0.56650
+0.18561
+0.574
+Specification C loses on every held-out measure despite four times the parameters, because missingness is
+a confound: mutual acceptance is 0.2724 with no soft field known, 0.2546 with one to three known,
+0.2317 with all seven known; the seven both-known indicators are near-collinear and receive large offset‐
+ting coefficients (one reached +0.61) that encode who is observable, not who is compatible; and same_zone
+has 4,492 observations on one side and 24 on the other among logged pairs, so its coefficient is unidentifi‐
+able.
+Coefficient
+Value
+intercept
+−1.0065
+relationship_pace: agree
++0.5328
+relationship_goal: agree
++0.4212
+conversations: agree
++0.2958
+lifestyle: agree
+−0.0702
+Calibration on held-out data (target: mutual acceptance given both responded within 7 days; fitted on
+12 seeds, 3,054 both-responded pairs; evaluated on six disjoint held-out seeds, 1,462 pairs, base rate
+0.2538). The table reports the extended specification C; the shipped specification B has held-out log loss
+0.5513 and Brier 0.1830 on the same split:
+Predicted bin
+n
+Mean predicted
+Observed rate
+Gap
+0.05 to 0.10
+70
+0.0897
+0.1571
++0.067
+0.10 to 0.20
+248
+0.1694
+0.1532
+−0.016
+0.20 to 0.30
+784
+0.2631
+0.2640
++0.001
+0.30 to 0.40
+308
+0.3319
+0.2922
+−0.040
+0.40 to 0.60
+51
+0.4736
+0.4706
+−0.003
+0.60 to 0.80
+1
+0.6003
+1.0000
+(n = 1, uninformative)
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+24
+
+===== PAGE 25 =====
+The largest absolute gap in a bin with n ≥ 50 other than the lowest is 0.040, and the three central bins
+holding 1,340 pairs are within 0.040 of nominal; the one real defect is the lowest bin, where ridge over-
+shrinks strongly disagreeing pairs toward zero. Held-out log loss 0.5572, Brier 0.1856 for the extended
+specification shown. The fitted prior is calibrated, and calibration is not what makes a good edge weight
+here (§6.2c).
+B.5 Power table
+Gap to detect (MSMI/100)
+Episodes per arm
+Equivalent seeds × 6 families
+0.50
+14
+2.3
+0.30
+37
+6.2
+0.20
+83
+13.8
+0.15
+146
+24.3
+0.10
+329
+54.8
+B.6 Head-to-head configuration table
+60 episodes per configuration, ten seeds × six families. Ceiling is the §3 structural maximum on the same
+worlds; % of ceiling is coverage divided by it, pooled across families as a summary figure (per-family ceil‐
+ings differ, §3); results/primary_summary.csv carries the per-seed coverage-to-ceiling ratios once added on
+the working machine.
+Method
+MSMI/100 95% seed-block CI
+Events
+Coverage
+Ceiling
+% of ceiling
+Assignments
+Ask cost
+lab_potential_core4_maxw
+0.592 [0.392, 0.808]
+71
+0.343
+0.352
+98%
+77.1
+197
+lab_potential_maxw
+0.525 [0.408, 0.633]
+63
+0.343
+0.352
+98%
+76.4
+197
+unlock_soft7_maxw
+0.525 [0.375, 0.733]
+63
+0.342
+0.352
+97%
+76.1
+195
+unlock_core4_maxw
+0.492 [0.367, 0.650]
+59
+0.341
+0.352
+97%
+77.2
+195
+defaultask_core4_maxw
+0.483 [0.358, 0.600]
+58
+0.342
+0.352
+97%
+76.9
+197
+unlock_greedy
+0.475 [0.317, 0.633]
+57
+0.343
+0.352
+98%
+76.2
+195
+unlocksoft_prior_maxw
+0.417 [0.233, 0.617]
+50
+0.341
+0.352
+97%
+77.8
+582
+defaultask_soft7_maxw
+0.408 [0.308, 0.500]
+49
+0.342
+0.352
+97%
+76.6
+197
+unlock_prior_maxw
+0.400 [0.250, 0.592]
+48
+0.340
+0.352
+97%
+77.5
+195
+unlock_prior_online_day
+0.400 [0.250, 0.592]
+48
+0.340
+0.352
+97%
+77.6
+195
+random_feasible
+0.358 [0.267, 0.458]
+43
+0.342
+0.352
+97%
+76.4
+197
+greedy
+0.350 [0.233, 0.467]
+42
+0.343
+0.352
+97%
+77.3
+197
+no_ask
+0.167 [0.050, 0.292]
+20
+0.120
+0.352
+33%
+20.9
+0
+The four omitted configurations (fullbudget_unranked_maxw, identical to defaultask_core4_maxw by construc‐
+tion, plus lab_potential_prior_maxw, defaultask_prior_maxw, defaultsoft_prior_maxw) are in results/
+primary_summary.csv, with per-method median and 90th-percentile waiting times.
+B.7 Factorial grid and paired contrasts
+Cells show MSMI/100 with total events over 60 episodes in brackets; allocation is general-graph maxim‐
+um-weight matching in every cell.
+Ask rule
+7-soft agreement count
+Signed core-4
+Fitted logistic prior
+Default / unranked
+0.408 (49 ev, n=60)
+0.483 (58 ev, n=60)
+0.400 (48 ev, n=60)
+Count-based potential (incumbent)
+0.525 (63 ev, n=60)
+0.592 (71 ev, n=60)
+0.467 (56 ev, n=60)
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+25
+
+===== PAGE 26 =====
+Ask rule
+7-soft agreement count
+Signed core-4
+Fitted logistic prior
+Unlock-value (ours)
+0.525 (63 ev, n=60)
+0.492 (59 ev, n=60)
+0.400 (48 ev, n=60)
+Two allocation ablations sit outside the grid: starter greedy ordering with default asks scores 0.350 (42
+events) and with unlock asks 0.475 (57 events).
+Contrast
+Mean diff
+95% CI
+p
+W/T/L
+Events
+Global matching vs greedy ordering (soft-7, default asks)
++0.058
+[-0.058, +0.167]
+0.445
+14/40/6
+49 vs 42
+Signed core-4 vs 7-soft count (default asks)
++0.075
+[-0.025, +0.192]
+0.328
+14/39/7
+58 vs 49
+Fitted prior vs signed core-4 (default asks)
+-0.083
+[-0.200, +0.042]
+0.266
+7/39/14
+48 vs 58
+Count-based potential vs default asks (soft-7)
++0.117
+[-0.017, +0.233]
+0.160
+22/28/10
+63 vs 49
+Unlock vs count-based potential (soft-7)
+-0.000
+[-0.167, +0.200]
+1.000
+17/26/17
+63 vs 63
+Unlock vs default (signed core-4)
++0.008
+[-0.183, +0.192]
+1.000
+20/25/15
+59 vs 58
+Unlock vs default (fitted prior)
+-0.000
+[-0.142, +0.150]
+1.000
+15/32/13
+48 vs 48
+Coding + matching, default asks (vs greedy)
++0.133
+[+0.008, +0.258]
+0.102
+20/33/7
+58 vs 42
+Coding + matching, unlock asks (vs greedy)
++0.142
+[-0.067, +0.358]
+0.281
+23/23/14
+59 vs 42
+Pre-specified: incumbent vs official greedy
++0.175
+[+0.092, +0.258]
+0.016
+23/29/8
+63 vs 42
+Value of clarification (required ablation)
++0.183
+[+0.042, +0.325]
+0.055
+22/33/5
+42 vs 20
+B.8 Scenario-level table
+Method
+development
+sparse
+cold start
+delayed
+shift
+drift
+Primary
+lab_potential_core4_maxw
+0.850
+0.150
+0.350
+0.800
+0.650
+0.750
+0.592
+lab_potential_maxw
+0.800
+0.100
+0.400
+0.550
+0.550
+0.750
+0.525
+unlock_soft7_maxw
+0.700
+0.050
+0.350
+0.850
+0.500
+0.700
+0.525
+unlock_core4_maxw
+0.650
+0.100
+0.300
+0.650
+0.650
+0.600
+0.492
+defaultask_core4_maxw
+0.550
+0.050
+0.600
+0.650
+0.450
+0.600
+0.483
+unlock_greedy
+0.600
+0.050
+0.450
+0.550
+0.600
+0.600
+0.475
+unlocksoft_prior_maxw
+0.450
+0.050
+0.350
+0.700
+0.500
+0.450
+0.417
+defaultask_soft7_maxw
+0.450
+0.000
+0.600
+0.600
+0.400
+0.400
+0.408
+unlock_prior_maxw
+0.500
+0.050
+0.350
+0.550
+0.500
+0.450
+0.400
+unlock_prior_online_day
+0.500
+0.050
+0.350
+0.550
+0.500
+0.450
+0.400
+random_feasible
+0.500
+0.050
+0.350
+0.400
+0.350
+0.500
+0.358
+greedy
+0.350
+0.050
+0.550
+0.400
+0.400
+0.350
+0.350
+no_ask
+0.300
+0.000
+0.000
+0.150
+0.250
+0.300
+0.167
+coverage ceiling (§3)
+0.399
+0.177
+0.341
+0.399
+0.399
+0.399
+B.9 Funnel counts and stage rates
+Method
+Assigned
+Both responded
+Mutual accept
+Date
+Date ≤30d
+Both on time
+MSMI
+lab_potential_core4_maxw
+4624
+2753
+704
+571
+567
+174
+71
+lab_potential_maxw
+4584
+2717
+727
+560
+554
+156
+63
+unlock_soft7_maxw
+4566
+2687
+676
+549
+543
+145
+63
+unlock_core4_maxw
+4629
+2819
+714
+562
+560
+167
+59
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+26
+
+===== PAGE 27 =====
+Method
+Assigned
+Both responded
+Mutual accept
+Date
+Date ≤30d
+Both on time
+MSMI
+defaultask_core4_maxw
+4614
+2698
+688
+534
+529
+138
+58
+unlock_greedy
+4575
+2691
+681
+544
+539
+133
+57
+unlocksoft_prior_maxw
+4666
+2747
+676
+533
+532
+140
+50
+defaultask_soft7_maxw
+4594
+2636
+669
+515
+511
+122
+49
+unlock_prior_maxw
+4652
+2869
+722
+573
+572
+144
+48
+unlock_prior_online_day
+4658
+2859
+715
+577
+576
+143
+48
+random_feasible
+4583
+2717
+672
+535
+530
+114
+43
+greedy
+4641
+2710
+645
+511
+508
+99
+42
+no_ask
+1253
+750
+180
+152
+152
+47
+20
+Method
+P(both re‐
+spond)
+P(mutual given re‐
+sponded)
+P(date given
+mutual)
+P(on-time both giv‐
+en date)
+P(MSMI given as‐
+signed)
+lab_poten‐
+tial_core4_maxw
+0.595
+0.256
+0.811
+0.305
+0.0154
+lab_poten‐
+tial_maxw
+0.593
+0.268
+0.770
+0.279
+0.0137
+unlock_core4_maxw
+0.609
+0.253
+0.787
+0.297
+0.0127
+de‐
+faultask_core4_ma
+xw
+0.585
+0.255
+0.776
+0.258
+0.0126
+unlock_greedy
+0.588
+0.253
+0.799
+0.244
+0.0125
+unlock‐
+soft_prior_maxw
+0.589
+0.246
+0.788
+0.263
+0.0107
+unlock_prior_maxw
+0.617
+0.252
+0.794
+0.251
+0.0103
+random_feasible
+0.593
+0.247
+0.796
+0.213
+0.0094
+greedy
+0.584
+0.238
+0.792
+0.194
+0.0090
+no_ask
+0.599
+0.240
+0.844
+0.309
+0.0160
+B.10 Cost, waiting times and coverage accounting
+Metric
+Hard-only ask rules (n=14)
+Residual-soft ask rules (n=2)
+no_ask
+Ask cost per episode (ceiling 720)
+196
+598
+0
+Mean first-introduction wait (days)
+6.32
+6.15
+3.95
+Median first-introduction wait, of served (days)
+3.97
+3.64
+0.72
+90th-pct first-introduction wait, of served (days)
+16.02
+15.90
+13.77
+Unserved members of 200
+131.6
+131.8
+176.0
+Missing feedback events per episode
+39.5
+39.7
+10.2
+Coverage
+0.342
+0.341
+0.120
+In-process seconds per episode
+6.74
+5.83
+6.44
+Waiting times are computed over served members only, as the definition requires; unserved members stay
+in every coverage denominator. Each cell is the mean over that group's 60 episodes of a per-episode stat‐
+istic; per-method values are in results/primary_summary.csv.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+27
+
+===== PAGE 28 =====
+B.11 Residual-budget contrasts and askable-population probe
+Contrast
+Mean diff
+95% CI
+p
+W/T/L
+Events
+Ask cost A vs B
+Residual soft asks vs hard-only (unlock ranking fixed)
++0.017
+[-0.083, +0.158]
+0.961
+9/41/10
+50 vs 48
+582 vs 195
+Unlock-ranked soft asks vs member-order soft asks
++0.008
+[-0.200, +0.208]
+1.000
+17/28/15
+50 vs 49
+582 vs 614
+Online dense-proxy adaptation vs static prior
++0.000
+[+0.000, +0.000]
+1.000
+0/60/0
+48 vs 48
+195 vs 195
+Members with a complete, never-declined hard bundle (of 200), and live feasible edges between still-free
+members, averaged over 5 seeds:
+Family
+Ask rule
+d0
+d5
+d10
+d15
+d20
+d30
+d45
+d59
+development
+no_ask · members
+50
+58
+63
+68
+75
+75
+75
+75
+development
+default_asks · members
+54
+82
+107
+128
+140
+140
+140
+140
+development
+fullbudget_unranked · members
+54
+82
+107
+128
+140
+140
+140
+140
+development
+potential_ask_count · members
+54
+82
+107
+128
+140
+140
+140
+140
+development
+unlock_value · members
+54
+82
+107
+127
+139
+140
+140
+140
+development
+unlock_value_plus_soft · members
+54
+82
+107
+127
+139
+140
+140
+140
+sparse
+no_ask · members
+49
+54
+61
+67
+74
+74
+74
+74
+sparse
+default_asks · members
+53
+78
+105
+121
+132
+132
+132
+132
+sparse
+fullbudget_unranked · members
+53
+78
+105
+121
+132
+132
+132
+132
+sparse
+potential_ask_count · members
+53
+78
+105
+120
+132
+132
+132
+132
+sparse
+unlock_value · members
+53
+78
+105
+119
+130
+130
+130
+130
+sparse
+unlock_value_plus_soft · members
+53
+78
+105
+119
+130
+130
+130
+130
+development
+no_ask · live edges
+11
+1
+0
+1
+0
+0
+2
+0
+development
+unlock_value · live edges
+15
+4
+4
+2
+5
+1
+1
+2
+All five ranked ask rules are within one member of each other at every day after day 10 in both families;
+live-edge counts for the other ranked rules are in results/ask_timing.json.
+FIGURE 07
+Figure 7. The askable population saturates by day ~20 under every ranked rule (140 of 200 in development, 132 in
+sparse) while no-clarification plateaus at 75, leaving 40 days of budget with nobody left to ask.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+28
+
+===== PAGE 29 =====
+B.12 Oracle ladder per family
+180 oracle-ladder episodes over 10 seeds. R4/R5 are analysis-only: they write disclosed answers straight
+into the simulator's member records, which no policy may do and none of ours does. The latent-pair-prob‐
+ability rung was dropped (§4.6).
+Rung
+cold_start
+development
+sparse
+Mean
+Assignments
+Coverage
+R0 no clarification + greedy
+0.000
+0.300
+0.000
+0.100
+14.6
+0.091
+R1 default asks + random feasible
+0.350
+0.500
+0.050
+0.300
+61.9
+0.297
+R2 official greedy baseline
+0.550
+0.350
+0.050
+0.317
+62.5
+0.298
+R3 our policy with the fitted prior
+0.250
+0.450
+0.050
+0.250
+63.2
+0.297
+R4 oracle: free complete clarification
+0.100
+0.500
+0.100
+0.233
+62.9
+0.298
+R5 oracle: R4 + maximum-cardinality allocation
+0.150
+0.450
+0.100
+0.233
+63.1
+0.298
+B.13 Attainable primary-score bound
+Pair-selection quality
+P(mutual given both
+resp.)
+MSMI / assign‐
+ment
+dev
+spars
+e
+cold
+Primary
+bound
+Randomised-logging quality (measured)
+0.2538
+0.0105
+0.61
+9
+0.122
+0.47
+5
+0.512
+Incumbent published quality
+0.300
+0.0124
+0.73
+2
+0.145
+0.56
+2
+0.606
+Strong selection: the three relevant fields
+agree
+0.400
+0.0165
+0.97
+6
+0.193
+0.74
+9
+0.808
+Best-case selection
+0.500
+0.0207
+1.22
+0
+0.241
+0.93
+7
+1.009
+The bound assumes every one of the 118 / 90.6 / 23.3 effective edges is consumed, ignoring arrival and
+exit timing, the eight-day busy window and retirement on success. The randomised logging policy con‐
+sumed 71% of the edge supply in development, shift and drift, 68% in delayed, 79% in cold start and 87%
+in sparse, and scored 0.375 against the 0.512 bound.
+B.14 Never-served partition
+Family
+Never introdu‐
+cible
+of which: declined hard
+field
+of which: no feasible partner under complete
+disclosure
+Over‐
+lap
+develop‐
+ment
+60.2%
+31.9%
+33.9%
+5.6 pp
+cold start
+66.0%
+41.0%
+32.1%
+7.1 pp
+sparse
+82.3%
+32.8%
+67.0%
+17.5 pp
+The two columns are measured on different graphs (observed questionnaire vs full disclosure), so they
+overlap rather than nest; only their union bounds what is achievable.
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+29
+
+===== PAGE 30 =====
+Appendix C. Baseline equivalence against the
+reference implementation
+Reference mode (policy.py)
+Our in-process method
+Cases
+Identical ask lists, pair batches and final metrics
+greedy
+greedy
+6
+all identical
+no_asks
+no_ask
+6
+all identical
+random
+random_feasible
+6
+all identical
+Cases cover seeds 101 to 606 across all six families, 60 days each, comparing every ask list and every pair
+batch day by day.
+Appendix D. Validity threats
+Threat
+Effect
+Mitigation
+Public seeds only
+Private worlds differ; family behaviour may
+not transfer
+Report per family, never only the primary
+score
+Winner's curse
+Screening many configurations inflates the
+best one
+Report every configuration screened, including
+the losers
+In-process timing
+Not the official 10 s / 2-core / 1 GiB contain‐
+er limit
+Report wall clock separately; container test is
+Round 2 work
+Unadjusted multiplicity
+p-values are optimistic
+State the number of contrasts; give W/T/L as
+well
+Rare events
+A zero is not an equivalence result
+Report counts and CIs, never only means
+Label-cutoff bug (found in our
+own code)
+Online learners may have trained on wrong
+labels
+§7.5
+THE ONE INTRODUCTION PROBLEM
+BIPARTITE BARD / RESEARCH NOTE
+THE ONE INTRODUCTION PROBLEM · OCT 2026
+30

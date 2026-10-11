@@ -1,0 +1,5 @@
+# Runtime dependencies for inference only.
+# numpy / scikit-learn / matplotlib are DEV-ONLY (fitting and figures); they are
+# deliberately excluded here so the image stays small and cold start stays fast.
+# The fitted prior, if shipped, is emitted as static JSON coefficients.
+networkx==3.7
