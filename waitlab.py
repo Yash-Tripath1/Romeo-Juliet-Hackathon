@@ -34,7 +34,12 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OFFICIAL = HERE.parent / "work" / "official"
+# Locate the organiser kit: next to this file first, then ./official/, then
+# the original sandbox layout, then whatever KIT_DIR points at. Portable.
+_kit_candidates = [HERE, HERE / "official", HERE.parent / "work" / "official"]
+if os.environ.get("KIT_DIR"):
+    _kit_candidates.insert(0, Path(os.environ["KIT_DIR"]).expanduser().resolve())
+OFFICIAL = next((q for q in _kit_candidates if (q / "kit.py").exists()), HERE)
 sys.path.insert(0, str(OFFICIAL))
 sys.path.insert(0, str(OFFICIAL / "starter"))
 
@@ -44,7 +49,7 @@ from kit import HARD, SOFT, generate  # noqa: E402
 import networkx as nx  # noqa: E402
 
 VARIANTS = ("development", "sparse", "cold_start", "delayed", "shift", "drift")
-ARMS = ("greedy", "potential_ask", "waitfloor", "oldest_first", "signed_potential")
+ARMS = ("greedy", "no_ask", "random_feasible", "potential_ask", "potential_core4", "waitfloor", "oldest_first", "signed_potential")
 CORE = ("relationship_goal", "relationship_pace", "lifestyle", "conversations")
 CD_CACHE: dict[tuple[int, str], dict[str, int]] = {}
 
@@ -101,6 +106,35 @@ def potential_scores(available: list[dict]) -> dict[str, float]:
             potential += 0.2 + sum(known_equal(m, other, f) for f in CORE)
         scores[m["member_id"]] = potential
     return scores
+
+
+def max_weight_pairs_core4(state: dict) -> list[list[str]]:
+    """Maximum-weight matching on the CORE FOUR soft fields only.
+
+    This reconstructs Round 1's `lab_potential_core4_maxw` (reported 0.592,
+    best-of-17, code never committed). Round 1's note describes the winner as
+    potential-ranked asking with max-weight matching restricted to the four
+    core soft fields. If that reconstruction is right, this arm should score
+    near 0.592 on Round 1's seeds; on 120 fresh seeds it will show whether the
+    reported value survives selection.
+    """
+    members = [m for m in state["members"] if m.get("available")]
+    past = {tuple(sorted((i["user_a"], i["user_b"]))) for i in state.get("introductions", [])}
+    graph = nx.Graph()
+    for a, b in itertools.combinations(members, 2):
+        key = tuple(sorted((a["member_id"], b["member_id"])))
+        if key in past:
+            continue
+        if kit.eligibility(a, b)["status"] != "feasible":
+            continue
+        score = 0.01 + sum(
+            1 for f in CORE
+            if a["fields"].get(f) is not None and a["fields"].get(f) == b["fields"].get(f)
+        )
+        graph.add_edge(a["member_id"], b["member_id"], weight=float(score))
+    if not graph.number_of_edges():
+        return []
+    return [sorted(pair) for pair in nx.max_weight_matching(graph, maxcardinality=False, weight="weight")]
 
 
 def max_weight_pairs(state: dict) -> list[list[str]]:
@@ -231,16 +265,54 @@ def asks_waitfloor(state: dict, reserve_fraction: float = 0.5) -> list[dict]:
     return [{"member_id": mid, "field": "constraints"} for mid in chosen]
 
 
+def asks_none(state: dict) -> list[dict]:
+    """Supplied `no-clarification` baseline: never spend the ask budget."""
+    return []
+
+
+def pairs_random_feasible(state: dict) -> list[list[str]]:
+    """Supplied `random-feasible` baseline: feasible pairs in a deterministic
+    shuffle seeded from the day, then a greedy maximal matching. Seeded from
+    the day only - no world seed is reachable through the policy protocol,
+    which is exactly how the organiser's own baseline does it."""
+    import random
+
+    members = [m for m in state.get("members", []) if m.get("available")]
+    if len(members) < 2:
+        return []
+    past = {tuple(sorted((i["user_a"], i["user_b"])))
+            for i in state.get("introductions", [])}
+    edges = []
+    for a, b in itertools.combinations(members, 2):
+        key = tuple(sorted((a["member_id"], b["member_id"])))
+        if key not in past and kit.eligibility(a, b)["status"] == "feasible":
+            edges.append(sorted(key))
+    random.Random(17 + int(state.get("day", 0))).shuffle(edges)
+    used: set = set()
+    out = []
+    for pair in edges:
+        if used.isdisjoint(pair):
+            out.append(pair)
+            used.update(pair)
+    return out
+
+
 ASK_RULES = {
     "greedy": asks_greedy,
+    "no_ask": asks_none,
+    "random_feasible": asks_greedy,
     "potential_ask": asks_potential,
+    "potential_core4": asks_potential,
     "waitfloor": asks_waitfloor,
     "oldest_first": asks_oldest_first,
     "signed_potential": lambda st: _by_potential_signed(st, _slots(st)),
 }
 MATCHERS = {
     "greedy": kit.baseline_match,
+    "no_ask": kit.baseline_match,
+    "random_feasible": pairs_random_feasible,
     "potential_ask": max_weight_pairs,
+    "potential_core4": max_weight_pairs_core4,
     "waitfloor": max_weight_pairs,
     "oldest_first": max_weight_pairs,
     "signed_potential": max_weight_pairs,

@@ -7,8 +7,12 @@ This is what a policy with free, perfect, instantaneous clarification would
 reach. No policy may use this; it is computed from the world after the fact.
 Round 1 reported a 10-seed mean; the per-seed column was left pending.
 """
-import sys, json, itertools, copy
-sys.path.insert(0,'/home/user/work/official')
+import sys, os, json, itertools, copy
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_cands = ([os.environ['KIT_DIR']] if os.environ.get('KIT_DIR') else []) + \
+         [_HERE, os.path.join(_HERE, 'official')]
+_KIT = next((q for q in _cands if os.path.exists(os.path.join(q, 'kit.py'))), _HERE)
+sys.path.insert(0, _KIT)
 from kit import generate, eligibility, HARD
 
 def ceiling(seed, variant, n=200):
@@ -36,7 +40,12 @@ if __name__=='__main__':
     seeds=[int(x) for x in sys.argv[1].split(',')]
     variants=sys.argv[2].split(',')
     out=[ceiling(s,v) for v in variants for s in seeds]
-    json.dump(out, open('out/ceilings.json','w'), indent=1)
+    # Write where we are told, defaulting to ./out/ceilings.json. The directory
+    # is created if missing so the script works from any fresh checkout.
+    out_path = sys.argv[3] if len(sys.argv) > 3 else os.path.join('out', 'ceilings.json')
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    json.dump(out, open(out_path, 'w'), indent=1)
+    print(f'wrote {len(out)} cells -> {out_path}')
     import statistics
     print(f"{'variant':12s} {'ceiling':>8s} {'deg0':>7s} {'declined':>9s} {'edges':>7s} {'mean_deg':>9s}   (mean over {len(seeds)} seeds)")
     for v in variants:

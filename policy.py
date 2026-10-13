@@ -42,11 +42,22 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from kit import HARD, SOFT, baseline_asks, baseline_match, eligibility  # noqa: E402
 
-import networkx as nx  # noqa: E402
+# networkx is needed ONLY by the max-weight matcher (potential_ask /
+# waitfloor / oldest_first). Import it lazily so the greedy arm runs on the
+# standard library alone, which keeps the container dependency-free.
+nx = None
+
+
+def _nx():
+    global nx
+    if nx is None:
+        import networkx as _mod
+        nx = _mod
+    return nx
 
 CORE = ("relationship_goal", "relationship_pace", "lifestyle", "conversations")
 ARMS = ("greedy", "no_ask", "random_feasible", "potential_ask", "waitfloor", "oldest_first")
-DEFAULT_ARM = "waitfloor"
+DEFAULT_ARM = "greedy"
 
 
 # ---------------------------------------------------------------- observation
@@ -159,7 +170,7 @@ def pairs_max_weight(state: dict) -> list[list[str]]:
     if len(members) < 2:
         return []
     past = {tuple(sorted((i["user_a"], i["user_b"]))) for i in state.get("introductions", [])}
-    graph = nx.Graph()
+    graph = _nx().Graph()
     for a, b in itertools.combinations(members, 2):
         key = tuple(sorted((a["member_id"], b["member_id"])))
         if key in past:
@@ -173,7 +184,7 @@ def pairs_max_weight(state: dict) -> list[list[str]]:
         graph.add_edge(a["member_id"], b["member_id"], weight=weight)
     if not graph.number_of_edges():
         return []
-    return [sorted(p) for p in nx.max_weight_matching(graph, maxcardinality=False, weight="weight")]
+    return [sorted(p) for p in _nx().max_weight_matching(graph, maxcardinality=False, weight="weight")]
 
 
 def pairs_random_feasible(state: dict) -> list[list[str]]:

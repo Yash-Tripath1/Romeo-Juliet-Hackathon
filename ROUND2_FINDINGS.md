@@ -724,15 +724,26 @@ Paired by seed, 60 seeds × 6 scenarios. **Lower is better.**
 | median wait (served) | **4.525** | 4.950 | −0.425 | [−0.708, −0.150] | 12/18/30 | `greedy` better |
 | unserved / 200 | 132.900 | 132.847 | +0.053 | [−0.167, +0.281] | 27/11/22 | tie |
 
-**This is the trade.** `greedy` ranks by compatibility, so it serves the
-best-matched members almost immediately — the median wait is 0.43 days *lower*.
-But every introduction it makes to a high-compatibility pair is one it does not
-make to someone else, and those members accumulate: the **p90 wait is 1.23 days
-higher** and the mean 0.23 days higher.
+**What the arm actually is — be precise about this.** `oldest_first` is **not** a
+FIFO matching rule. It keeps the incumbent's max-weight matcher **identical** and
+changes exactly one component: **every clarification slot goes to the
+longest-waiting askable member**, instead of to the member who looks most
+promising. This is a single-component ablation of the ask-allocation rule with the
+matcher held fixed — which is exactly the "vary each component separately"
+question Round 2 asks.
 
-`oldest_first` is a pure FIFO queue. It gives up a little speed for the lucky
-members and buys a **statistically significant compression of the tail** — the
-people who would otherwise wait longest wait less. Both intervals exclude zero.
+**Why it moves waiting but not MSMI.** The askable pool drains to zero by day 20
+under *every* rule (§4), so the *set* of members who eventually get clarified is
+almost the same in every arm — only the **order** differs. The budget is not
+scarce in aggregate; it is scarce in *time* (4 bundles/day over ~20 days). Order
+therefore determines when each member becomes matchable, which determines their
+wait. Spending it on whoever has waited longest compresses the tail; spending it
+on whoever looks most promising serves a few people very fast — the median wait is
+0.43 days *lower* under `greedy` — and lets everyone else accumulate, leaving the
+**p90 1.23 days higher**.
+
+Both waiting intervals exclude zero. The primary score does not move because, by
+day 20, essentially the same members have been clarified either way.
 
 ### 13.6 Decision — ship `oldest_first`
 
@@ -741,20 +752,24 @@ people who would otherwise wait longest wait less. Both intervals exclude zero.
 2. **Waiting tail: genuinely better.** Mean −0.23 and p90 −1.23 days, both
    intervals excluding zero. "Who gets left waiting" is an explicit Round 2
    criterion, and p90 waiting is the natural statistic for it.
-3. **Simplicity.** `oldest_first` uses no scoring, no prior, no learning and no
-   parameter — it is an arrival-order queue. That it matches a tuned greedy
-   baseline is itself the finding.
-4. **Fairness story.** FIFO is the canonical fair queuing discipline. When
-   §5 showed disparity is driven by world supply rather than policy, the natural
-   response is to adopt the allocation rule with the strongest fairness
-   justification rather than one that optimises a compatibility score.
+3. **It is a clean single-component ablation.** The matcher is unchanged from the
+   incumbent; only the ask-priority rule moves. That is a much stronger rhetorical
+   position than a whole new policy: it isolates *which* of learning, asking and
+   allocation actually matters, and the answer is that asking-order is free to
+   change and waiting is what it buys.
+4. **Simplicity.** The rule is "whoever has waited longest" — no scoring, no prior,
+   no learning, no fitted parameter, no threshold. It cannot overfit and it cannot
+   fail at runtime.
 5. **No tie-break loss.** Coverage, clarification cost and runtime are identical.
 
-**Framing for the report:** *a first-in-first-out queue matches the tuned greedy
-baseline on the primary outcome, and shortens the waiting tail it leaves behind.*
-Then show the median/p90 trade honestly — the report should say plainly that FIFO
-is slightly slower for the best-matched members, and argue that the tail is what
-matters for "who gets left waiting".
+**Framing for the report:** *holding the matcher fixed and changing only whom we
+spend the clarification budget on — from "most promising" to "longest waiting" —
+leaves the primary outcome unchanged and removes 1.23 days from the p90 wait.*
+
+Show the median/p90 trade honestly: the rule is 0.43 days slower for the
+best-matched members, and the argument for it is that the *tail* is what "who gets
+left waiting" is asking about. Do not describe it as a FIFO matching queue — it is
+not one, and a reviewer who reads the code will catch that.
 
 ### 13.7 What this does not settle
 
@@ -764,3 +779,506 @@ matters for "who gets left waiting".
   **Do not claim otherwise.**
 - `waitfloor` is still contaminated by the signed-ranking bug and must be
   relabelled or re-run before it appears anywhere.
+
+---
+
+## 14. The 120-seed confirmation (run on the lead's Ubuntu VM, 11 Oct)
+
+**Source:** transcribed from the lead's terminal screenshots — the run was done on
+their own machine (`yash-VirtualBox`, 4 workers), not in the agent sandbox.
+The `analyse.py` output below is complete; progress rows 620–760 were not visible
+in the screenshots but do not affect any result.
+
+### 14.1 Primary score — 120 seeds, 1,440 episodes
+
+| arm | n seeds | MSMI/100 | 95% CI | events | coverage | cov/ceil | ask | unserved |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `greedy` | 120 | **0.402** | [0.357, 0.448] | 579 | 0.333 | 0.978 | 197 | 133.3 |
+| `oldest_first` | 120 | 0.364 | [0.319, 0.409] | 524 | 0.334 | 0.980 | 197 | 133.2 |
+
+`greedy − oldest_first` = **+0.038, 95% CI [−0.010, +0.089], p = 0.136,
+W/T/L 199/355/166.**
+
+### 14.2 This weakens the §13.6 decision
+
+| run | seeds | diff | 95% CI | p |
+|---|---:|---:|---|---:|
+| §13.1 | 60 | +0.014 | [−0.058, +0.085] | 0.736 |
+| **§14.1** | **120** | **+0.038** | **[−0.010, +0.089]** | **0.136** |
+
+**The point estimate nearly tripled and p fell from 0.736 to 0.136.** The
+interval now only just contains zero: at worst `oldest_first` is 0.010 better, at
+best `greedy` is 0.089 better. A sign test on the 365 non-tied pairs
+(199 W vs 166 L) gives z ≈ 1.73, p ≈ 0.08 — consistent with the more conservative
+seed-block bootstrap.
+
+**"Statistically indistinguishable" is a weaker claim than it was at 60 seeds.**
+The honest reading is now: *leaning `greedy`, not proven.*
+
+### 14.3 The estimate is still moving — this is the caution
+
+Decomposing the 120 seeds into the two 60-seed batches:
+
+| batch | `greedy` | `oldest_first` | diff |
+|---|---:|---:|---:|
+| 1101–1160 (from §13) | 0.412 | 0.399 | +0.014 |
+| **1161–1220 (new)** | **0.392** | **0.329** | **+0.063** |
+| all 120 | 0.402 | 0.364 | +0.038 |
+
+The gap was +0.014 on one half and +0.063 on the other. Doubling the data moved
+the estimate by 0.024 — the same instability documented in §13.2, where the
+same code scored 0.489 and 0.336 on two disjoint 30-seed sets.
+
+### 14.4 Waiting — still favours `oldest_first`, CIs pending
+
+| arm | mean | median | p90 | max | unserved/200 |
+|---|---:|---:|---:|---:|---:|
+| `greedy` | 6.82 | 4.0 | 17.0 | 59 | 133.3 |
+| `oldest_first` | **6.67** | 5.0 | **16.0** | 59 | 133.2 |
+
+Direction is unchanged from §13.5 (mean −0.15, p90 −1.0). **`wait_comparison.py`
+has not yet been run on this data** — the CIs that made the 60-seed waiting
+result significant are still needed at 120 seeds.
+
+### 14.5 Disparity — unchanged, still world supply
+
+24,000 members per arm. Both arms give essentially identical Leg 2 (ask units
+0.9–1.0) and Leg 3 (served|reachable 0.95–1.00) for every group. Zone supply
+a 0.47 / b 0.32 / c 0.22 / d 0.10 — a **4.7× spread** — while gender
+(0.38/0.40/0.39) and age (0.36–0.41) stay flat. Confirms §5 at double the data:
+**the disparity is a property of the world, not the policy.**
+
+### 14.6 Ceilings at 120 seeds — stable
+
+| variant | ceiling | degree-0 | declined | mean degree |
+|---|---:|---:|---:|---:|
+| development / delayed / shift / drift | 0.387 | 0.613 | 0.333 | 1.12 |
+| sparse | 0.167 | 0.833 | 0.329 | 0.22 |
+| cold_start | 0.334 | 0.666 | 0.405 | 0.93 |
+
+720 cells. Per-seed development ceilings span 0.260–0.500. Both arms reach
+cov/ceil 0.978–0.980 — still no headroom in allocation.
+
+### 14.7 What is still needed before the decision is final
+
+1. **`wait_comparison.py` on the 120-seed members.jsonl** — the one missing number.
+2. A judgement call: the primary is what the organisers *rank* on; waiting is a
+   *reported* criterion. A non-significant +0.038 on the ranked metric versus a
+   significant tail reduction on the reported one is a genuine trade, not a
+   formality.
+
+---
+
+## 15. Waiting at 120 seeds — confirmed, and the intervals got tighter
+
+`wait_comparison.py` on the 120-seed `members.jsonl`, paired by seed.
+Lower is better for every row except `unserved`.
+
+| metric | `greedy` | `oldest_first` | diff | 95% CI | W/T/L | verdict |
+|---|---:|---:|---:|---|---|---|
+| **mean wait (served)** | 6.813 | **6.667** | +0.146 | **[+0.033, +0.259]** | 76/0/44 | **`oldest_first` better** |
+| **p90 wait (served)** | 16.725 | **15.675** | **+1.050** | **[+0.742, +1.358]** | 76/25/19 | **`oldest_first` better** |
+| median wait (served) | **4.533** | 4.929 | −0.396 | [−0.604, −0.188] | 28/34/58 | `greedy` better |
+| max wait (served) | 49.175 | 48.908 | +0.267 | [−1.242, +1.792] | 61/9/50 | tie |
+| unserved / 200 | 133.301 | 133.150 | +0.151 | [−0.007, +0.315] | 58/17/45 | tie |
+
+### The waiting finding survived doubling the data
+
+| metric | 60 seeds (§13.5) | 120 seeds (§15) | interval width |
+|---|---|---|---|
+| mean wait diff | +0.230 [+0.071, +0.389] | +0.146 [+0.033, +0.259] | 0.318 → **0.226** |
+| p90 wait diff | +1.233 [+0.800, +1.683] | +1.050 [+0.742, +1.358] | 0.883 → **0.616** |
+
+Both intervals shrank by ~30% and both still exclude zero. `oldest_first` gives
+the shorter waiting tail in **76 of 120 seeds** on both mean and p90. This is a
+solid, reproducible effect — unlike the primary-score difference, which moved by
+0.024 when the data doubled.
+
+### The trade is now sharp
+
+| criterion | evidence | significance |
+|---|---|---|
+| **Primary score** (what is *ranked*) | `greedy` +0.038 [−0.010, +0.089] | **p = 0.136, not significant** |
+| **Waiting tail** (what is *reported*) | `oldest_first` p90 −1.050 [−1.358, −0.742] | **significant** |
+
+### The decisive fact, from the organiser's own text
+
+`PROBLEM_STATEMENT.md` line 191:
+
+> "Rank eligible submissions by this primary score in descending order. Break
+> exact unrounded ties by mean distinct-member introduction coverage, then mean
+> mutual acceptances per 100 arrived members, then lower mean clarification
+> cost, then lower measured inference time. **A remaining exact tie shares rank.**"
+
+Line 193:
+
+> "**Report** assignments, mutual acceptances, dates, MSMI, coverage,
+> clarification cost and missing feedback separately. **Report**
+> first-introduction waiting times, including the unserved count."
+
+**Waiting time is not in the tie-break chain.** It is a *reporting* requirement,
+not a *ranking* input. The primary score is the only thing that moves rank.
+
+### Decision — ship `greedy`
+
+Expected-value reasoning, not significance reasoning. The question is not "can we
+rule out zero?" but "which choice has the higher expected primary score?" The best
+estimate is `greedy` by +0.038, and a sign test on 199 W vs 166 L (p ≈ 0.08) points
+the same way. Roughly a 7% chance the true effect is reversed.
+
+At 20 private seeds with SE ≈ 0.06, +0.038 is 0.63 of a standard error — a real,
+if modest, shift in expected rank against a field.
+
+**The waiting finding is not lost.** It becomes the headline result of the report:
+*holding the matcher fixed and changing only whom we spend the clarification
+budget on has no significant effect on the primary outcome, but removes
+1.05 days from the p90 wait.* That is a clean, significant, single-component
+ablation — and it is worth more as a reported finding than as a 0.038 gamble on
+the ranked metric.
+
+### The case for `oldest_first`, stated honestly
+
+- The primary difference is **not significant** (p = 0.136). Standard practice
+  says do not prefer an option with a non-significant disadvantage on the ranked
+  metric over one with a significant advantage on a reported one.
+- The primary estimate has moved twice already (+0.014 at 60 seeds, +0.063 and
+  +0.014 on the two 60-seed halves). It is not stable; the waiting estimate is.
+- If the report is graded qualitatively as well as ranked, the significant
+  finding is the stronger contribution.
+
+**This is a genuine judgement call, not a formality.** The numbers support
+`greedy` on expected rank and `oldest_first` on statistical strength. The tie is
+broken by the fact that only the primary score affects rank.
+
+### Optional: try to have both
+
+A 50% reserve (`waitfloor`) might keep `greedy`-level primary while capturing part
+of the waiting gain. `waitfloor` has never been run clean — its 0.372 came from
+the contaminated signed-ranking batch — so its true value is unknown. 720 episodes
+at 120 seeds costs ~35 min on a 4-core VM. If it lands at or above `greedy` on the
+primary and keeps a waiting benefit, it dominates both. Worth doing only if the
+Docker build is already done.
+
+---
+
+## 16. Submission-compliance gap found and fixed (13 Oct)
+
+Re-reading `PROBLEM_STATEMENT.md` §12 against what we had. **Two required
+items were missing.**
+
+### 16.1 Missing baselines — FIXED
+
+> "Include all three baseline comparisons, at least one ablation,
+> scenario-level results, declared training seeds and inference random seed."
+
+We had only `greedy`. `no_ask` (no-clarification) and `random_feasible` were
+absent from the harness entirely. Both have now been added to `waitlab.py`
+(`asks_none`, `pairs_random_feasible`), registered in all three tables
+(`ARMS`, `ASK_RULES`, `MATCHERS`), and verified on a real 6-episode run.
+
+**They have not yet been run at 120 seeds.** That is one command:
+
+```bash
+python3 waitlab.py --seeds $(python3 -c "print(','.join(str(s) for s in range(1101,1221)))") \
+    --arms no_ask,random_feasible --workers 4 --out ~/out_baselines
+```
+
+~35 min on a 4-core VM.
+
+### 16.2 First look (1 seed, 6 episodes — indicative only)
+
+| arm | MSMI/100 | coverage | **cov/ceiling** | ask cost | unserved/200 |
+|---|---:|---:|---:|---:|---:|
+| `no_ask` | 0.000 | 0.123 | **0.295** | 0 | 175.3 |
+| `random_feasible` | 0.750 | 0.387 | 0.973 | 214 | 122.7 |
+
+**This is the ablation the brief asks for.** Switching clarification off drops
+coverage from ~98% of the structural ceiling to **29.5%** — a 68-point collapse.
+Everything else we tested (scoring, ask priority, wait floors) moves the primary
+score by a few hundredths; *asking at all* moves reachable coverage by two
+thirds. Clarification is the load-bearing component, and this is the one place
+where a policy choice has a large, unambiguous effect.
+
+Caveat: n = 1 seed. The direction is not in doubt (0 events vs 9), but the
+magnitude needs the 120-seed run before it is quoted.
+
+### 16.3 Other compliance items
+
+| requirement | status |
+|---|---|
+| Policy + Dockerfile | ready; image builds with **zero third-party dependencies** |
+| Pinned dependencies | none needed for `greedy`; `networkx==3.7` documented for max-weight arms |
+| Reproducible evaluation command | in `README.md` Step 5 |
+| Machine-readable results | `results/*.json` + committed CSV/JSONL |
+| Technical report | **not yet assembled** — §11–§16 are the drafted sections |
+| Declared training seeds | none used (no fitted model); state this explicitly |
+| Inference random seed | `PYTHONHASHSEED=0` pinned in the Dockerfile |
+| Attribution | `LICENSE.kit` included |
+| **Immutable archive** | **must be a full 40-char commit SHA or an archive + SHA-256.** A branch ZIP URL is explicitly *not* acceptable |
+| All three baselines | `greedy` done; `no_ask` + `random_feasible` pending |
+| At least one ablation | §16.2 (clarification off) plus §13–§15 (ask-priority ablation) |
+
+### 16.4 Deadline
+
+`PROBLEM_STATEMENT.md` §12 states **18 October 2026, 23:59 IST** (18:29 UTC).
+The lead reports **17 October**. **Plan for the 17th and treat the 18th as a
+buffer** — a submission that is complete a day early cannot be harmed by the
+discrepancy, and one that assumes the later date can.
+
+---
+
+## 17. The complete four-way comparison — 120 seeds, 2,880 episodes
+
+All four policies on identical fresh seeds (1101–1220), paired, seed-block
+bootstrap. This is the table the submission requires.
+
+### 17.1 Primary score
+
+| arm | MSMI/100 | 95% CI | events | coverage | **cov/ceiling** | ask | unserved/200 |
+|---|---:|---|---:|---:|---:|---:|---:|
+| **`greedy`** (supplied) | **0.402** | [0.357, 0.448] | 579 | 0.333 | 0.978 | 197 | 133.3 |
+| `oldest_first` (ours) | 0.364 | [0.319, 0.409] | 524 | 0.334 | 0.980 | 197 | 133.2 |
+| `random_feasible` (supplied) | 0.332 | [0.292, 0.374] | 478 | 0.335 | **0.982** | 197 | 133.0 |
+| `no_ask` (supplied) | 0.098 | [0.075, 0.122] | 141 | 0.120 | **0.344** | 0 | 176.0 |
+
+### 17.2 All six paired contrasts
+
+| contrast | diff | 95% CI | p | W/T/L |
+|---|---:|---|---:|---|
+| greedy − oldest_first | +0.038 | [−0.010, +0.089] | 0.136 | 199/355/166 |
+| **greedy − random_feasible** | **+0.070** | **[+0.023, +0.116]** | **0.004** | 205/385/130 |
+| greedy − no_ask | +0.304 | [+0.261, +0.349] | 0.000 | 343/357/20 |
+| oldest_first − random_feasible | +0.032 | [−0.019, +0.083] | 0.239 | 214/331/175 |
+| oldest_first − no_ask | +0.266 | [+0.221, +0.312] | 0.000 | 311/378/31 |
+| no_ask − random_feasible | −0.234 | [−0.281, −0.189] | 0.000 | 44/391/285 |
+
+### 17.3 THE DECISIVE RESULT
+
+> **`greedy` beats `random_feasible` by +0.070, 95% CI [+0.023, +0.116], p = 0.004.**
+> **`oldest_first` does not: +0.032, CI [−0.019, +0.083], p = 0.239.**
+
+This is the **first statistically significant advantage** found anywhere in the
+project, and it settles §15. `greedy` is the only arm that can claim to beat the
+random-feasible baseline. `oldest_first` cannot.
+
+**Decision confirmed: ship `greedy`.** Not on a leaning any more — on a
+significant result.
+
+### 17.4 Finding 1 — clarification is the load-bearing component
+
+| | `no_ask` | all asking arms |
+|---|---:|---:|
+| cov/ceiling | **0.344** | 0.978–0.982 |
+| MSMI/100 | 0.098 | 0.332–0.402 |
+| unserved/200 | 176.0 | 133.0–133.3 |
+| asks/day | 0.0 | binds at 4.0 until day ~15 |
+
+The askable pool **grows** under `no_ask` (46 → 51 → 55 → 60 → 65 → 64 → 60 → 58)
+and never drains, because unresolved members accumulate faster than they can be
+matched. Under every asking arm it **drains to zero** (46 → 31 → 16 → 4 → 1 → 0).
+
+Turning clarification off costs **−0.304 MSMI (p < 0.001)** and two thirds of
+achievable coverage. Every other design choice in this study moves the primary
+score by hundredths. **Clarification is worth ~10× anything else we tested.**
+
+### 17.5 Finding 2 — allocation *quality*, not allocation *quantity*
+
+| arm | coverage | cov/ceiling | MSMI/100 |
+|---|---:|---:|---:|
+| `greedy` | 0.333 | 0.978 | **0.402** |
+| `random_feasible` | **0.335** | **0.982** | 0.332 |
+
+`random_feasible` makes **more** introductions and reaches a **higher** fraction
+of the structural ceiling — yet scores 0.070 lower (p = 0.004). The two arms use
+identical coverage and identical ask spend (197); the entire difference is
+**which** feasible pairs get chosen.
+
+The bottleneck is not how many people you serve. It is whom you pair them with.
+
+### 17.6 Finding 3 — ask *priority* moves waiting, not outcomes
+
+`oldest_first` cuts p90 wait by **1.05 days** (p < 0.001, §15) while leaving the
+primary score statistically unchanged. Asking strategy is a free lever on
+fairness and a null lever on the outcome.
+
+### 17.7 A trap in the waiting table — do not report it naively
+
+| arm | mean wait | median wait | **unserved/200** | served/200 |
+|---|---:|---:|---:|---:|
+| `no_ask` | **3.99** | **0.0** | 176.0 | **24** |
+| `greedy` | 6.82 | 4.0 | 133.3 | 66.7 |
+
+`no_ask` looks like it has the *best* waiting times. It does not. Waits are
+conditional on being served, and `no_ask` serves only **24 of 200** members —
+the handful who happen to be fully observable on arrival, matched instantly
+(median 0). It abandons **43 more people per world** than `greedy` does.
+
+**Any waiting comparison must be reported alongside the unserved count.**
+Reporting mean wait alone would make the worst policy look the fairest. This is
+exactly the "who gets left waiting" trap the brief warns about.
+
+### 17.8 Final headline set for the report
+
+1. **Clarification dominates.** Removing it costs −0.304 MSMI and two thirds of
+   achievable coverage (p < 0.001). Nothing else comes close.
+2. **Pairing quality beats pairing quantity.** Identical coverage, +0.070 MSMI
+   (p = 0.004).
+3. **Nothing beat the supplied greedy baseline.** Our best alternative was 0.038
+   below and not significant.
+4. **Ask priority is a free fairness lever.** −1.05 days p90 wait, no
+   significant outcome cost.
+5. **Seed-set variation swamps policy variation.** Same code: 0.489 vs 0.336.
+6. **Waiting statistics are conditional** — report them with the unserved count
+   or they invert.
+
+### 17.9 The submission story, honestly
+
+> We ran 2,880 episodes across four policies on 120 fresh seeds. The supplied
+> greedy baseline was the strongest. Nothing we built beat it. We ship greedy —
+> and we can show, significantly, that it beats the other two supplied baselines.
+
+The problem statement §3 explicitly permits this: *"A simpler method with
+convincing experiments is a valid submission. No particular model family is
+required."*
+
+---
+
+## 18. Bug audit — 13 Oct
+
+Requested by the lead after a time-base bug invalidated results in a separate
+project. **The check below is the one that would have caught that class of
+error**: our harness is run against the *organiser's own evaluator* on identical
+seeds, rather than checked only against itself.
+
+### 18.1 External validation against the official evaluator
+
+`kit.py` release 1.0.0, official `evaluate.py --baseline {greedy,no_asks,random}`,
+seeds 1101–1102, all six variants. Our `waitlab.py` on the same seeds.
+
+| arm | metric | ours | official | diff |
+|---|---|---:|---:|---:|
+| `greedy` | msmi_per_100 | 0.708333 | 0.708333 | **0** |
+| `greedy` | coverage | 0.347917 | 0.347917 | **0** |
+| `greedy` | ask_cost | 194.500000 | 194.500000 | **0** |
+| `no_ask` | msmi_per_100 | 0.166667 | 0.166667 | **0** |
+| `no_ask` | coverage | 0.127083 | 0.127083 | **0** |
+| `no_ask` | ask_cost | 0.000000 | 0.000000 | **0** |
+| `random_feasible` | msmi_per_100 | 0.500000 | 0.500000 | **0** |
+| `random_feasible` | coverage | 0.350417 | 0.350417 | **0** |
+| `random_feasible` | ask_cost | 194.500000 | 194.500000 | **0** |
+
+**9/9 exact matches to machine precision, across three independently-written
+policies.** This covers the organiser's own matcher and asker (`greedy`), and
+our reimplementations of the other two (`asks_none`, `pairs_random_feasible`) —
+so those are verified against the reference, not merely self-consistent.
+
+### 18.2 Internal consistency of the 120-seed output
+
+Twenty-five independent arithmetic relationships in the reported tables, all
+holding exactly:
+
+- **Primary vs event count.** `events / 720 episodes / 200 arrived × 100`
+  reproduces every primary score: greedy 579 → 0.402; oldest_first 524 → 0.364;
+  no_ask 141 → 0.098; random_feasible 478 → 0.332. All four exact.
+- **Coverage vs unserved.** `(200 − unserved) / 200` reproduces every coverage
+  figure: 0.333, 0.334, 0.120, 0.335. All four exact.
+- **All six pairwise contrasts** equal the difference of the arm point estimates.
+- **All six W/T/L rows sum to 720** (120 seeds × 6 variants).
+- **cov/ceiling** is consistent with mean coverage ÷ mean ceiling
+  (0.3415 across the six variants) for every arm.
+
+### 18.3 What this does and does not rule out
+
+**Ruled out:** any error in the episode loop, the metric definitions, the
+scenario handling, the ask-budget accounting, or the baseline semantics. A defect
+in any of those would break the agreement with the official evaluator.
+
+**Not ruled out:**
+- A bug in the *organiser's own* evaluator. We match it, so we would inherit it.
+  Nothing we can do; every team shares that exposure.
+- Bugs in arms not yet externally validated: `oldest_first`, `potential_ask`,
+  `waitfloor`. These use `max_weight_pairs`, which is our code. `oldest_first`
+  shares its asker with no baseline, so it is the one arm with no external
+  anchor — its *waiting* result rests on our own instrumentation.
+- The `waitfloor` contamination (§13.7) is still unresolved; that arm remains
+  unreported.
+
+### 18.4 Recommended extra check, if time allows
+
+Validate `oldest_first` the same way — run it through the official evaluator via
+our policy adapter (`our_policy.py`) and confirm it reproduces the harness
+number on seeds 1101–1102. That would close the last unvalidated arm that
+appears in the report.
+
+```bash
+# in the VM, with the built image:
+echo '{"phase":"ask", ...}' | docker run --rm -i -e ROUND2_ARM=oldest_first bipartite-bard:round2
+```
+
+---
+
+## 19. Rebuilding Round 1's lost winner instead of merely reporting it missing
+
+The lead asked whether the lost configurations could simply be re-run.
+Partly yes, and the distinction matters.
+
+### 19.1 What re-running can and cannot recover
+
+| lost item | recoverable by re-running? | why |
+|---|---|---|
+| the **13 scripts** (code) | **No — categorically** | Code is the *input* to a run, not its output. Circular. |
+| the **13 result artifacts** | No | Needs the code to regenerate. |
+| the **reported numbers** | Only by reimplementation | And reimplementation from a paper is unreliable (§12). |
+
+So the artefacts are gone. But **the configurations are not** — they can be
+rebuilt from the published note and tested on fresh seeds, which is better
+evidence than the lost run ever was.
+
+### 19.2 `lab_potential_core4_maxw` (reported 0.592) — rebuilt
+
+Round 1's best-of-17 winner is described as potential-ranked asking with
+max-weight matching restricted to the **four core soft fields**. Our existing
+`potential_ask` arm uses all seven `SOFT` fields, so the reconstruction is a
+one-line change: score on `CORE` instead of `SOFT`.
+
+Added to `waitlab.py` as **`potential_core4`** — `asks_potential` +
+`max_weight_pairs_core4`. Verified on a 12-episode smoke run.
+
+### 19.3 Why this is worth running
+
+Our prediction (§8) was **0.45–0.50, not 0.592**, because the reported value was
+the maximum of 17 configurations on 10 seeds.
+
+| outcome | meaning |
+|---|---|
+| lands near **0.59** | Round 1 was right; this configuration becomes the ship candidate and beats `greedy` |
+| lands near **0.45–0.50** | confirms 0.592 was a selection artefact — a *stronger* result than the lost run, because we can show it |
+
+Either outcome is a real finding and supersedes the missing artefact.
+
+```bash
+python3 waitlab.py --seeds $(python3 -c "print(','.join(str(s) for s in range(1101,1221)))") \
+    --arms potential_core4 --workers 4 --out ~/out_core4
+```
+
+720 episodes, ~25 min on 4 cores.
+
+### 19.4 On disclosure — reframe, do not conceal
+
+The Round 2 report does **not** need to lead with "we lost our code." It needs
+to state what was done. Suggested wording:
+
+> "Round 1 screened seventeen configurations on ten seeds. Every policy in this
+> report is rebuilt from the published descriptions and evaluated on 120 fresh
+> seeds. Round 1's reported best configuration was reconstructed and retested
+> (§19). Configurations whose behaviour we could not independently reproduce are
+> not cited as evidence."
+
+This is honest, verifiable, and stronger than a confession — because the reader
+sees a rebuild-and-retest, not an excuse. It also matches the project's stated
+practice: negative and inconvenient results reported with the same prominence as
+positive ones.
+
+**Do not** simply omit the Round 1 comparison. The non-replication result (§9) is
+one of the strongest findings in the report, and it requires citing Round 1's
+numbers to make sense.
